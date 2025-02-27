@@ -3,10 +3,8 @@ import os
 import pyautogui
 import argparse
 import numpy as np
-# from games.game_2048.game_logic import Game2048
 from tools.utils import encode_image, log_output
 from tools.serving.api_providers import anthropic_completion, openai_completion, gemini_completion
-# import pygame
 import subprocess
 import multiprocessing
 # System prompt for LLM
