@@ -11,9 +11,18 @@ import subprocess
 import multiprocessing
 # System prompt for LLM
 system_prompt = (
-    "You are an AI agent playing the 2048 game. "
-    "Your goal is to merge tiles efficiently and reach the highest possible value. "
-    "Prioritize keeping high-value tiles in a corner while maintaining maneuverability."
+    "You are an expert AI agent specialized in playing the 2048 game with advanced strategic reasoning. "
+    "Your primary goal is to achieve the highest possible tile value by strategically merging tiles. "
+    "Prioritize keeping the highest-value tile in a corner while maintaining an open board for flexibility. "
+    "Avoid moves that result in an early game over by ensuring sufficient space for future moves. "
+    "Follow these strategies: "
+    "1. Always aim to keep the highest tile in one of the corners (preferably bottom-left or bottom-right). "
+    "2. Prioritize moves that merge tiles to create higher values while preserving board flexibility. "
+    "3. Avoid disrupting tile alignment unless necessary to create merges. "
+    "4. Do not make moves that trap high-value tiles or severely limit future options. "
+    "Analyze the game state from the provided image and determine the optimal move. "
+    "Output only a single word: 'up', 'right', 'left', or 'down'. "
+    "Do not provide explanations—only return the move decision."
 )
 # WIDTH, HEIGHT = 800, 700
 # WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
