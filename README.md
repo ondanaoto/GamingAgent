@@ -75,7 +75,7 @@ cd $YOUR_WORKPLACE/SuperMarioBros-C/build
 2. Full screen the game by pressing `F`. You should be able to see:
 
 <p align="center">
-<img src="assets/super_mario_bros/home.png" alt="super_mario" width="220" align="center">
+<img src="assets/super_mario_bros/home.png" alt="super_mario" width="400" align="center">
 </p>
 
 3. Open another screen, launch your agent in terminal with
@@ -87,7 +87,7 @@ python games/superMario/mario_agent.py --api_provider {your_favorite_api_provide
 4. Due to concurrency issue, sometimes the agent will temporarily pause your game by pressing `Enter`. To avoid the issue, you can launch the agent only after entering the game upon seeing:
 
 <p align="center">
-<img src="assets/super_mario_bros/level_1.png" alt="super_mario_level_1" width="220" align="center">
+<img src="assets/super_mario_bros/level_1.png" alt="super_mario_level_1" width="400" align="center">
 </p>
 
 #### Other command options
