@@ -20,7 +20,7 @@ def main():
     )
     parser.add_argument("--api_provider", type=str, default="anthropic",
                         help="API provider to use.")
-    parser.add_argument("--model_name", type=str, default="claude-3-5-sonnet-20241022",
+    parser.add_argument("--model_name", type=str, default="claude-3-7-sonnet-20250219",
                         help="Model name.")
     parser.add_argument("--concurrency_interval", type=float, default=0.5,
                         help="Interval in seconds between starting workers.")

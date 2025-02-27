@@ -28,7 +28,7 @@ cd LocalGenie
 ```
 2. Install dependency:
 ```
-conda create -n local_cua python==3.9 -y
+conda create -n local_cua python==3.10 -y
 pip install -r requirements.txt
 ```
 
@@ -53,6 +53,8 @@ export OPENAI_API_KEY={YOUR_OPENAI_API_KEY}
 export ANTHROPIC_API_KEY={YOUR_ANTHROPIC_API_KEY}
 export GEMINI_API_KEY={your_GEMINI_API_KEY}
 ```
+
+⚠️ Due to concurrency, deploying the agent with high-end models (and a large number of workers) could incur higher cost.
 
 ## Games
 
