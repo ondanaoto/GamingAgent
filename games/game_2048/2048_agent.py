@@ -15,8 +15,8 @@ system_prompt = (
     "Your goal is to merge tiles efficiently and reach the highest possible value. "
     "Prioritize keeping high-value tiles in a corner while maintaining maneuverability."
 )
-WIDTH, HEIGHT = 800, 700
-WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
+# WIDTH, HEIGHT = 800, 700
+# WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
 
 def capture_screenshot():
     """
