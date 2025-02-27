@@ -13,7 +13,7 @@
 
 ## Introduction
 
-The goal of is project is to build user-friendly computer use agents (CUAs) that can run on your PC and laptops. As part of LMGames, our current focus is on building local gaming agents.
+The goal of is project is to provide an easy solution of deploying computer use agents (CUAs) that run on your PC and laptops. As part of LMGames, our current focus is on building local gaming agents.
 
 Current features:
 
