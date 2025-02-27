@@ -56,7 +56,7 @@ export GEMINI_API_KEY={your_GEMINI_API_KEY}
 
 ## Games
 
-### Super Mario Bros
+### Super Mario Bros (1983 by Nintendo)
 
 #### Game Installation
 
