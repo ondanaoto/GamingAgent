@@ -117,6 +117,7 @@ python game/game_2048/game_logic.py
 <img src="assets/2048/2048_sample.png" alt="2048" width="400" align="center">
 </p>
 Start the AI agent to play automatically:
+
 ```sh
 python game/game_2048/2048_agent.py
 ```
