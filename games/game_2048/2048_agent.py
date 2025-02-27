@@ -3,15 +3,20 @@ import os
 import pyautogui
 import argparse
 import numpy as np
+from games.game_2048.game_logic import Game2048
 from tools.utils import encode_image, log_output
 from tools.serving.api_providers import anthropic_completion, openai_completion, gemini_completion
-
+import pygame
+import subprocess
+import multiprocessing
 # System prompt for LLM
 system_prompt = (
     "You are an AI agent playing the 2048 game. "
     "Your goal is to merge tiles efficiently and reach the highest possible value. "
     "Prioritize keeping high-value tiles in a corner while maintaining maneuverability."
 )
+WIDTH, HEIGHT = 800, 700
+WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
 
 def capture_screenshot():
     """
@@ -22,6 +27,7 @@ def capture_screenshot():
 
     # Capture full screen
     screen_width, screen_height = pyautogui.size()
+    
     region = (0, 0, screen_width, screen_height)
     screenshot = pyautogui.screenshot(region=region)
     screenshot.save(screenshot_path)
@@ -78,16 +84,10 @@ def main():
         while True:
             move = get_best_move(system_prompt, args.api_provider, args.model_name)
             # Map arrow keys to WASD
-            move_mapping = {
-                "up": "w",
-                "right": "d",
-                "left": "a",
-                "down": "s"
-            }
 
             if move in ["up", "right", "left", "down"]:
 
-                pyautogui.press(move_mapping[move])
+                pyautogui.press(move)
                 print(f"Executed move: {move}")
             else:
                 print(f"Invalid move received: {move}")
