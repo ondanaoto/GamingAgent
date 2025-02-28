@@ -49,7 +49,7 @@ def worker_short(thread_id, offset, system_prompt, api_provider, model_name):
             region = (0, 0, screen_width, screen_height)
             screenshot = pyautogui.screenshot(region=region)
 
-            thread_folder = f"cache/thread_{thread_id}"
+            thread_folder = f"cache/mario/thread_{thread_id}"
             os.makedirs(thread_folder, exist_ok=True)
 
             screenshot_path = os.path.join(thread_folder, "screenshot.png")
@@ -133,7 +133,7 @@ def worker_long(thread_id, offset, system_prompt, api_provider, model_name):
             region = (0, 0, screen_width, screen_height)
             screenshot = pyautogui.screenshot(region=region)
 
-            thread_folder = f"cache/thread_{thread_id}"
+            thread_folder = f"cache/mario/thread_{thread_id}"
             os.makedirs(thread_folder, exist_ok=True)
 
             screenshot_path = os.path.join(thread_folder, "screenshot.png")
@@ -144,11 +144,11 @@ def worker_long(thread_id, offset, system_prompt, api_provider, model_name):
             start_time = time.time()
 
             if api_provider == "anthropic":
-                generated_code_str = anthropic_completion(system_prompt, model_name, base64_image, short_prompt)
+                generated_code_str = anthropic_completion(system_prompt, model_name, base64_image, long_prompt)
             elif api_provider == "openai":
-                generated_code_str = openai_completion(system_prompt, model_name, base64_image, short_prompt)
+                generated_code_str = openai_completion(system_prompt, model_name, base64_image, long_prompt)
             elif api_provider == "gemini":
-                generated_code_str = gemini_completion(system_prompt, model_name, base64_image, short_prompt)
+                generated_code_str = gemini_completion(system_prompt, model_name, base64_image, long_prompt)
             else:
                 raise NotImplementedError(f"API provider: {api_provider} is not supported.")
 
