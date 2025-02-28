@@ -3,7 +3,7 @@ import numpy as np
 import concurrent.futures
 import argparse
 
-from games.superMario.workers import worker_tetris
+from games.tetris.workers import worker_tetris
 
 system_prompt = (
     "You are an expert AI agent specialized in playing Tetris gameplay, search for and execute optimal moves given each game state. Prioritize line clearing over speed."
