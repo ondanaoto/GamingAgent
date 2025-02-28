@@ -11,6 +11,7 @@
 - [Games](#games)
   - [Super Mario Bros 1985](#super-mario-bros-1985-by-nintendo)
   - [2048](#2048)
+  - [Tetris](#tetris)
 
 ## Introduction
 
@@ -29,7 +30,7 @@ cd LocalGenie
 ```
 2. Install dependency:
 ```
-conda create -n local_cua python==3.10 -y
+conda create -n game_cua python==3.10 -y
 pip install -r requirements.txt
 ```
 
@@ -67,7 +68,7 @@ Install your Super Mario Bros game. In our demo, we adopt [SuperMarioBros-C](htt
 
 Navigate to the repo and follow the installation instructions.
 
-#### Prepare to launch the game
+#### Launch Gaming Agent
 
 1. Once the game is built, download and move the ROM file:
 ```
@@ -88,7 +89,7 @@ cd $YOUR_WORKPLACE/SuperMarioBros-C/build
 
 4. Open another screen, launch your agent in terminal with
 ```
-cd $YOUR_WORKPLACE/LocalGenie
+cd $YOUR_WORKPLACE/GamingAgent
 python games/superMario/mario_agent.py --api_provider {your_favorite_api_provider} --model_name {official_model_codename}
 ```
 
@@ -145,3 +146,51 @@ This section simply compares the gameplay performance of GPT-4o and Claude-3.7 i
 
 ###### Claude-3.7 Gameplay  
 [![Watch Claude-3.7](https://img.youtube.com/vi/As-D5_O4IXk/0.jpg)](https://www.youtube.com/watch?v=As-D5_O4IXk)
+
+
+### Tetris
+
+#### Game Installation
+
+Install your Tetris game. In our demo, we adopt [Python-Tetris-Game-Pygame](https://github.com/rajatdiptabiswas/tetris-pygame).
+
+#### Launch Gaming Agent
+
+1. Launch the game with
+```
+cd $YOUR_WORKPLACE/Python-Tetris-Game-Pygame
+python main.py
+```
+
+⚠️ In your Tetris implementation, Modify game speed to accomodate for AI gaming agent latency. For example, in the provided implementation, navigate to `main.py`, line 23: change event time to 500~600ms.
+
+You should be able to see:
+
+<p align="center">
+<img src="assets/tetris/gameplay.png" alt="tetris_game" width="400" align="center">
+</p>
+
+2. Adjust Agent's Field of Vision. Either full screen your game or adjust screen region in `/games/tetris/workers.py`, line 67 to capture only the gameplay window. For example, in `Python-Tetris-Game-Pygame` with MacBook Pro, change the line to `region = (0, 0, screen_width // 32 * 9, screen_height // 32 * 20)`.
+
+3. Open another screen, launch your agent in terminal with
+```
+cd $YOUR_WORKPLACE/GamingAgent
+python games/tetris/tetris_agent.py
+```
+
+#### Other command options
+```
+--api_provider: API provider to use.
+
+--model_name: Model name (has to come with vision capability).
+
+--concurrency_interval: Interval in seconds between consecutive workers.
+
+--api_response_latency_estimate: Estimated API response latency in seconds.
+
+--policy: 'fixed', only one policy is supported for now.
+```
+
+#### Build your own policy
+
+Currently we find single-work agent is able to make meaningful progress in the game. If the gaming agent spawns independent workers, they don't coordinate well. We will work on improving the agent and gaming policies. We also welcome your thought and contributions.
