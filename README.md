@@ -116,15 +116,20 @@ In our early experiments, 'alternate' policy performs well. Try it yourself and 
 
 ### 2048
 
+2048 is a sliding tile puzzle game where players merge numbered tiles to reach the highest possible value.
+
 #### Game Set Up
 
-Run the 2048 game with:  
+Run the 2048 game with a defined window size:
 ```sh
-python games/game_2048/game_logic.py
+python games/game_2048/game_logic.py -wd 600 -ht 600
 ```
 <p align="center">
 <img src="assets/2048/2048_sample.png" alt="2048" width="400" align="center">
 </p>
+
+Use **Ctrl** to restart the game and the **arrow keys** to move tiles strategically.
+
 Start the AI agent to play automatically:
 
 ```sh
