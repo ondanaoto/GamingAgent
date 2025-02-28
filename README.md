@@ -140,25 +140,10 @@ python games/game_2048/2048_agent.py
 
 This section simply compares the gameplay performance of GPT-4o and Claude-3.7 in the 2048 game.
 
-<div align="center">
-  <table>
-    <tr>
-      <td align="center"><b>GPT-4o</b></td>
-      <td align="center"><b>Claude-3.7</b></td>
-    </tr>
-    <tr>
-      <td>
-        <video width="400" controls>
-          <source src="assets/2048/gpt-4o.mp4" type="video/mp4">
-          Your browser does not support the video tag.
-        </video>
-      </td>
-      <td>
-        <video width="400" controls>
-          <source src="assets/2048/claude-3.7.mp4" type="video/mp4">
-          Your browser does not support the video tag.
-        </video>
-      </td>
-    </tr>
-  </table>
-</div>
+### GPT-4o Gameplay
+[![GPT-4o Video](assets/2048/gpt-4o-thumbnail.png)](assets/2048/gpt-4o.mp4)
+
+### Claude-3.7 Gameplay
+[![Claude-3.7 Video](assets/2048/claude-3.7-thumbnail.png)](assets/2048/claude-3.7.mp4)
+
+Click the images or links above to watch the videos.
