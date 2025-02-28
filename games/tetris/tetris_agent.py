@@ -53,33 +53,33 @@ def main():
                 if i % 2 == 0:
                     executor.submit(
                         worker_tetris, i, offsets[i], system_prompt,
-                        args.api_provider, args.model_name
+                        args.api_provider, args.model_name, args.long_control_time
                     )
                 executor.submit(
                     worker_tetris, i, offsets[i], system_prompt,
-                    args.api_provider, args.model_name
+                    args.api_provider, args.model_name, args.short_control_time
                 )
             elif args.policy == "alternate":
                 # Alternate: even threads -> long worker, odd threads -> short worker
                 if i % 2 == 0:
                     executor.submit(
                         worker_tetris, i, offsets[i], system_prompt,
-                        args.api_provider, args.model_name
+                        args.api_provider, args.model_name, args.long_control_time
                     )
                 else:
                     executor.submit(
                         worker_tetris, i, offsets[i], system_prompt,
-                        args.api_provider, args.model_name
+                        args.api_provider, args.model_name, args.short_control_time
                     )
             elif args.policy == "long":
                 executor.submit(
                     worker_tetris, i, offsets[i], system_prompt,
-                    args.api_provider, args.model_name
+                    args.api_provider, args.model_name, args.long_control_time
                 )
             elif args.policy == "short":
                 executor.submit(
                     worker_tetris, i, offsets[i], system_prompt,
-                    args.api_provider, args.model_name
+                    args.api_provider, args.model_name, args.short_control_time
                 )
 
         try:
