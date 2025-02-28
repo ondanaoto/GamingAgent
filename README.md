@@ -108,7 +108,24 @@ python games/superMario/mario_agent.py --api_provider {your_favorite_api_provide
 
 #### Build your own policy
 
-You can implement your own policy in `mario_agent.py`! Deploying high-concurrency strategy with short-term planning streaming workers vs. low-concurrency strategy with long-term planning workers, or a mix of both. 
 
+You can implement your own policy in `mario_agent.py`! Deploying high-concurrency strategy with short-term planning streaming workers vs. low-concurrency strategy with long-term planning workers, or a mix of both.
 
 In our early experiments, 'alternate' policy performs well. Try it yourself and find out which one works better!
+
+### 2048
+
+#### Game Set Up
+
+Run the 2048 game with:  
+```sh
+python game/game_2048/game_logic.py
+```
+<p align="center">
+<img src="assets/2048/2048_sample.png" alt="2048" width="400" align="center">
+</p>
+Start the AI agent to play automatically:
+
+```sh
+python game/game_2048/2048_agent.py
+```
