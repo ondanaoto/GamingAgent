@@ -135,3 +135,13 @@ Start the AI agent to play automatically:
 ```sh
 python games/game_2048/2048_agent.py
 ```
+
+#### AI Performance Comparison - 2048 in case study
+
+This section simply compares the gameplay performance of GPT-4o and Claude-3.7 in the 2048 game.
+
+###### GPT-4o Gameplay  
+[![Watch GPT-4o](https://img.youtube.com/vi/JBW1Au_DZdU/0.jpg)](https://www.youtube.com/watch?v=JBW1Au_DZdU)
+
+###### Claude-3.7 Gameplay  
+[![Watch Claude-3.7](https://img.youtube.com/vi/As-D5_O4IXk/0.jpg)](https://www.youtube.com/watch?v=As-D5_O4IXk)

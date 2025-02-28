@@ -23,7 +23,7 @@ my_font = pygame.font.SysFont(c["font"], c["font_size"], bold=True)
 WHITE = (255, 255, 255)
 
 
-def winCheck(board, status, theme, text_col):
+def winCheck(board, status, theme, text_col, size):
     """
     Check game status and display win/lose result.
 
@@ -32,42 +32,57 @@ def winCheck(board, status, theme, text_col):
         status (str): game status
         theme (str): game interface theme
         text_col (tuple): text colour
+        size (tuple): (width, height) of the game window
     Returns:
         board (list): updated game board
         status (str): game status
     """
     if status != "PLAY":
-        size = c["size"]
-        # Fill the window with a transparent background
-        s = pygame.Surface((size, size), pygame.SRCALPHA)
+        # Create a transparent overlay
+        s = pygame.Surface(size, pygame.SRCALPHA)
         s.fill(c["colour"][theme]["over"])
         screen.blit(s, (0, 0))
 
-        # Display win/lose status
-        if status == "WIN":
-            msg = "YOU WIN!"
-        else:
-            msg = "GAME OVER!"
+        # Dynamically adjust font sizes
+        title_font_size = max(size[0] // 10, 36)  # Scale with screen width
+        subtitle_font_size = max(size[0] // 20, 24)  # Slightly smaller for prompts
 
-        screen.blit(my_font.render(msg, 1, text_col), (140, 180))
-        # Ask user to play again
-        screen.blit(my_font.render(
-            "Play again? (y/ n)", 1, text_col), (80, 255))
+        title_font = pygame.font.SysFont(c["font"], title_font_size, bold=True)
+        subtitle_font = pygame.font.SysFont(c["font"], subtitle_font_size, bold=True)
+
+        # Display win/lose message
+        msg = "YOU WIN!" if status == "WIN" else "GAME OVER!"
+        title_text = title_font.render(msg, True, text_col)
+
+        # Calculate centered positions
+        title_x = (size[0] - title_text.get_width()) // 2
+        title_y = size[1] // 3  # Position at 1/3 height of screen
+
+        # Render restart instructions
+        restart_text = subtitle_font.render("Play again? (Y/N)", True, text_col)
+        restart_x = (size[0] - restart_text.get_width()) // 2
+        restart_y = title_y + title_text.get_height() + 20  # Below title
+
+        # Blit text to screen
+        screen.blit(title_text, (title_x, title_y))
+        screen.blit(restart_text, (restart_x, restart_y))
 
         pygame.display.update()
 
         while True:
             for event in pygame.event.get():
                 if event.type == QUIT or \
-                        (event.type == pygame.KEYDOWN and event.key == K_n):
+                        (event.type == pygame.KEYDOWN and event.key == pygame.K_n):
                     pygame.quit()
                     sys.exit()
 
-                if event.type == pygame.KEYDOWN and event.key == K_y:
-                    # 'y' is pressed to start a new game
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_y:
+                    # 'Y' is pressed to start a new game
                     board = newGame(theme, text_col, size)
-                    return (board, "PLAY")
-    return (board, status)
+                    return board, "PLAY"
+
+    return board, status
+
 
 
 def newGame(theme, text_col, size):
@@ -221,4 +236,4 @@ def playGame(theme, difficulty, size):
                         status = checkGameStatus(board, difficulty)
 
                         # Check win/lose
-                        board, status = winCheck(board, status, theme, text_col)
+                        board, status = winCheck(board, status, theme, text_col, size)
