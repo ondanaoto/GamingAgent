@@ -30,21 +30,25 @@ def worker_tetris(
 
     tetris_prompt = f"""
 Analyze the current Tetris board state and generate PyAutoGUI code to control Tetris 
-for the next {plan_seconds} second(s). You can move left/right, rotate pieces, soft drop, 
-hard drop, or hold a piece if that's supported. Focus on clearing lines and avoiding 
+for the next {plan_seconds} second(s). You can move left/right, rotate pieces. Focus on clearing lines and avoiding 
 stacking that would cause a top-out.
 
+At the time the code is executed, 3~5 seconds have elapsed. The game might have moved on to the next block.
+
 ### General Tetris Controls (example keybinds):
-- left arrow: move piece left
-- right arrow: move piece right
-- up arrow: rotate piece clockwise
-- down arrow: accelerated drop
+- left: move piece left
+- right: move piece right
+- up: rotate piece clockwise
+- down: accelerated drop （if necessary)
 
 ### Strategies and Caveats:
-1. Avoid creating holes and keep the stack flat.
-2. If you see a chance to clear lines, use a well-timed drop or rotate.
-3. Plan for your next piece as well, but do not top out.
-4. The entire sequence of key presses should be feasible within {plan_seconds} second(s).
+1. If the stack is high, most likely you are controlling the "next" block due to latency.
+2. Prioritize stacking on the sides. Balance the two sides.
+3. Prioritize keeping the stack flat.
+4. Avoid creating holes.
+5. If you see a chance to clear lines, rotate and move the block to correct positions.
+6. Plan for your next piece as well, but do not top out.
+7. The entire sequence of key presses should be feasible within {plan_seconds} second(s).
 
 ### Output Format:
 - Output ONLY the Python code for PyAutoGUI commands, e.g. `pyautogui.press("left")`.
@@ -56,7 +60,7 @@ stacking that would cause a top-out.
         while True:
             # Capture the screen
             screen_width, screen_height = pyautogui.size()
-            region = (0, 0, screen_width, screen_height)
+            region = (0, 0, screen_width // 64 * 18, screen_height // 64 * 40)
             screenshot = pyautogui.screenshot(region=region)
 
             # Create a unique folder for this thread's cache
@@ -92,7 +96,7 @@ stacking that would cause a top-out.
 
             # Extract Python code for execution
             clean_code = extract_python_code(generated_code_str)
-            log_output(thread_id, f"[Thread {thread_id}] Python code to be executed:\n{clean_code}\n", "tetris")
+            log_output(thread_id, f"[Thread {thread_id}] Python code to be executed:\n{clean_code}\n")
             print(f"[Thread {thread_id}] Python code to be executed:\n{clean_code}\n")
 
             try:

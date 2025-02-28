@@ -19,71 +19,44 @@ def main():
     )
     parser.add_argument("--api_provider", type=str, default="anthropic",
                         help="API provider to use.")
-    parser.add_argument("--model_name", type=str, default="claude-3-5-sonnet-20241022",
+    parser.add_argument("--model_name", type=str, default="claude-3-7-sonnet-20250219",
                         help="Model name.")
     parser.add_argument("--concurrency_interval", type=float, default=1,
-                        help="Interval in seconds between starting workers.")
-    parser.add_argument("--api_response_latency_estimate", type=float, default=4.0,
+                        help="Interval in seconds between workers.")
+    parser.add_argument("--api_response_latency_estimate", type=float, default=5,
                         help="Estimated API response latency in seconds.")
-    parser.add_argument("--short_control_time", type=float, default=1,
-                        help="Short worker control time.")
-    parser.add_argument("--long_control_time", type=float, default=2,
-                        help="Long worker control time.")
-    parser.add_argument("--policy", type=str, default="alternate", 
-                        choices=["mixed", "alternate", "long", "short"],
-                        help="Worker policy: 'long' or 'short'. "
-                             "In 'long' or 'short' modes only those workers are enabled, "
-                             "or use 'mixed'/'alternate' to combine them.")
+    parser.add_argument("-control_time", type=float, default=1.5,
+                        help=" orker control time.")
+    parser.add_argument("--policy", type=str, default="fixed", 
+                        choices=["fixed"],
+                        help="Worker policy")
 
     args = parser.parse_args()
 
-    # Calculate how many threads to spawn
-    num_threads = int(args.api_response_latency_estimate / args.concurrency_interval)
+    worker_span = args.control_time + args.concurrency_interval
+    num_threads = int(args.api_response_latency_estimate // worker_span)
+    
+    # add another thread if needed, leaving between requests
+    if args.api_response_latency_estimate % worker_span != 0:
+        num_threads += 1
     
     # Create an offset list
-    offsets = [i * args.concurrency_interval for i in range(num_threads)]
+    offsets = [i * (args.control_time + args.concurrency_interval) for i in range(num_threads)]
 
     print(f"Starting with {num_threads} threads using policy '{args.policy}'...")
     print(f"API Provider: {args.api_provider}, Model Name: {args.model_name}")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
         for i in range(num_threads):
-            if args.policy == "mixed":
-                # Mixed: always spin up one long worker and one short worker in each iteration
-                if i % 2 == 0:
-                    executor.submit(
-                        worker_tetris, i, offsets[i], system_prompt,
-                        args.api_provider, args.model_name, args.long_control_time
-                    )
+            if args.policy == "fixed":
                 executor.submit(
                     worker_tetris, i, offsets[i], system_prompt,
-                    args.api_provider, args.model_name, args.short_control_time
+                    args.api_provider, args.model_name, args.control_time
                 )
-            elif args.policy == "alternate":
-                # Alternate: even threads -> long worker, odd threads -> short worker
-                if i % 2 == 0:
-                    executor.submit(
-                        worker_tetris, i, offsets[i], system_prompt,
-                        args.api_provider, args.model_name, args.long_control_time
-                    )
-                else:
-                    executor.submit(
-                        worker_tetris, i, offsets[i], system_prompt,
-                        args.api_provider, args.model_name, args.short_control_time
-                    )
-            elif args.policy == "long":
-                executor.submit(
-                    worker_tetris, i, offsets[i], system_prompt,
-                    args.api_provider, args.model_name, args.long_control_time
-                )
-            elif args.policy == "short":
-                executor.submit(
-                    worker_tetris, i, offsets[i], system_prompt,
-                    args.api_provider, args.model_name, args.short_control_time
-                )
+            else:
+                raise NotImplementedError(f"policy: {args.policy} not implemented.")
 
         try:
-            # Keep the main thread alive so the workers can run
             while True:
                 time.sleep(0.25)
         except KeyboardInterrupt:
