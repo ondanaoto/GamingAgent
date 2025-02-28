@@ -78,7 +78,7 @@ def worker_short(thread_id, offset, system_prompt, api_provider, model_name):
             print(f"\n[Thread {thread_id} - SHORT] --- Generation (Streaming) ---\n{generated_code_str}\n")
 
             clean_code = extract_python_code(generated_code_str)
-            log_output(thread_id, f"[Thread {thread_id} - SHORT] Python code to be executed:\n{clean_code}\n")
+            log_output(thread_id, f"[Thread {thread_id} - SHORT] Python code to be executed:\n{clean_code}\n", "mario")
             print(f"[Thread {thread_id} - SHORT] Python code to be executed:\n{clean_code}\n")
 
             try:
@@ -162,7 +162,7 @@ def worker_long(thread_id, offset, system_prompt, api_provider, model_name):
             print(f"\n[Thread {thread_id} - LONG] --- Generation (Streaming) ---\n{generated_code_str}\n")
 
             clean_code = extract_python_code(generated_code_str)
-            log_output(thread_id, f"[Thread {thread_id} - LONG] Python code to be executed:\n{clean_code}\n")
+            log_output(thread_id, f"[Thread {thread_id} - LONG] Python code to be executed:\n{clean_code}\n", "mario")
             print(f"[Thread {thread_id} - LONG] Python code to be executed:\n{clean_code}\n")
 
             try:

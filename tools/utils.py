@@ -15,11 +15,11 @@ def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
-def log_output(thread_id, log_text):
+def log_output(thread_id, log_text, game):
     """
     Logs output to `cache/thread_{thread_id}/output.log`
     """
-    thread_folder = f"cache/thread_{thread_id}"
+    thread_folder = f"cache/{game}/thread_{thread_id}"
     os.makedirs(thread_folder, exist_ok=True)
     
     log_path = os.path.join(thread_folder, "output.log")

@@ -92,7 +92,7 @@ stacking that would cause a top-out.
 
             # Extract Python code for execution
             clean_code = extract_python_code(generated_code_str)
-            log_output(thread_id, f"[Thread {thread_id}] Python code to be executed:\n{clean_code}\n")
+            log_output(thread_id, f"[Thread {thread_id}] Python code to be executed:\n{clean_code}\n", "tetris")
             print(f"[Thread {thread_id}] Python code to be executed:\n{clean_code}\n")
 
             try:
