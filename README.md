@@ -1,4 +1,4 @@
-<div align="center"><h1>&nbsp;LocalGenie - Personal Computer Use Agent</h1></div>
+<div align="center"><h1>&nbsp;GamingAgent - Personal Computer Gaming Agent</h1></div>
 
 <p align="center">
 <a href="https://x.com/largemodelgame"><b>Demos on X</b></a>
