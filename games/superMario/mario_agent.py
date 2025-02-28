@@ -26,7 +26,7 @@ def main():
                         help="Interval in seconds between starting workers.")
     parser.add_argument("--api_response_latency_estimate", type=float, default=7.0,
                         help="Estimated API response latency in seconds.")
-    parser.add_argument("--policy", type=str, default="mixed", choices=["mixed", "long", "short"],
+    parser.add_argument("--policy", type=str, default="alternate", choices=["mixed", "alternate", "long", "short"],
                         help="Worker policy: 'long', or 'short'. In 'long' or 'short' modes only those workers are enabled.")
 
     args = parser.parse_args()
@@ -40,10 +40,14 @@ def main():
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
         for i in range(num_threads):
             if args.policy == "mixed":
+                if i % 2 == 0:
+                    executor.submit(worker_long, i, offsets[i], system_prompt, args.api_provider, args.model_name)
+                executor.submit(worker_short, i, offsets[i], system_prompt, args.api_provider, args.model_name)
+            if args.policy == "alternate":
                 # Alternate between long and short workers.
                 if i % 2 == 0:
                     executor.submit(worker_long, i, offsets[i], system_prompt, args.api_provider, args.model_name)
-                else:
+                else:    
                     executor.submit(worker_short, i, offsets[i], system_prompt, args.api_provider, args.model_name)
             elif args.policy == "long":
                 executor.submit(worker_long, i, offsets[i], system_prompt, args.api_provider, args.model_name)
