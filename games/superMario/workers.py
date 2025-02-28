@@ -144,11 +144,11 @@ def worker_long(thread_id, offset, system_prompt, api_provider, model_name):
             start_time = time.time()
 
             if api_provider == "anthropic":
-                generated_code_str = anthropic_completion(system_prompt, model_name, base64_image, short_prompt)
+                generated_code_str = anthropic_completion(system_prompt, model_name, base64_image, long_prompt)
             elif api_provider == "openai":
-                generated_code_str = openai_completion(system_prompt, model_name, base64_image, short_prompt)
+                generated_code_str = openai_completion(system_prompt, model_name, base64_image, long_prompt)
             elif api_provider == "gemini":
-                generated_code_str = gemini_completion(system_prompt, model_name, base64_image, short_prompt)
+                generated_code_str = gemini_completion(system_prompt, model_name, base64_image, long_prompt)
             else:
                 raise NotImplementedError(f"API provider: {api_provider} is not supported.")
 

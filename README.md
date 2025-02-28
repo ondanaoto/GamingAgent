@@ -68,25 +68,30 @@ Navigate to the repo and follow the installation instructions.
 
 #### Prepare to launch the game
 
-1. Once the game is built, launch the game with
+1. Once the game is built, download and move the ROM file:
+```
+mv path-to-your-ROM-file/"Super Mario Bros. (JU) (PRG0) [!].nes" $YOUR_WORKPLACE/SuperMarioBros-C/build/
+```
+
+2. Launch the game with
 ```
 cd $YOUR_WORKPLACE/SuperMarioBros-C/build
 ./smbc
 ```
 
-2. Full screen the game by pressing `F`. You should be able to see:
+3. Full screen the game by pressing `F`. You should be able to see:
 
 <p align="center">
 <img src="assets/super_mario_bros/home.png" alt="super_mario" width="400" align="center">
 </p>
 
-3. Open another screen, launch your agent in terminal with
+4. Open another screen, launch your agent in terminal with
 ```
 cd $YOUR_WORKPLACE/LocalGenie
 python games/superMario/mario_agent.py --api_provider {your_favorite_api_provider} --model_name {official_model_codename}
 ```
 
-4. Due to concurrency issue, sometimes the agent will temporarily pause your game by pressing `Enter`. To avoid the issue, you can launch the agent only after entering the game upon seeing:
+5. Due to concurrency issue, sometimes the agent will temporarily pause your game by pressing `Enter`. To avoid the issue, you can launch the agent only after entering the game upon seeing:
 
 <p align="center">
 <img src="assets/super_mario_bros/level_1.png" alt="super_mario_level_1" width="400" align="center">
@@ -98,12 +103,15 @@ python games/superMario/mario_agent.py --api_provider {your_favorite_api_provide
 
 --api_response_latency_estimate: Estimated API response latency in seconds.
 
---policy: 'long', or 'short'. In 'long' or 'short' modes only those workers are enabled.
+--policy: 'long', 'short', 'alternate' or 'mixed'. In 'long' or 'short' modes only those workers are enabled.
 ```
 
 #### Build your own policy
 
-You can implement your own policy in `mario_agent.py`! Deploying high-concurrency strategy with short-term planning streaming workers vs. low-concurrency strategy with long-term planning workers, or a mix of both. Try and find out which one works better!
+
+You can implement your own policy in `mario_agent.py`! Deploying high-concurrency strategy with short-term planning streaming workers vs. low-concurrency strategy with long-term planning workers, or a mix of both.
+
+In our early experiments, 'alternate' policy performs well. Try it yourself and find out which one works better!
 
 ### 2048
 
