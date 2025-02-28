@@ -1,9 +1,7 @@
 import time
 import os
 import pyautogui
-import anthropic
 import numpy as np
-import concurrent.futures
 
 from tools.utils import encode_image, log_output, extract_python_code
 from tools.serving.api_providers import anthropic_completion, openai_completion, gemini_completion

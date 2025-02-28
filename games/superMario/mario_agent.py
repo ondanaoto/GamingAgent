@@ -3,7 +3,6 @@ import numpy as np
 import concurrent.futures
 import argparse
 
-from tools.utils import encode_image, log_output, extract_python_code
 from games.superMario.workers import worker_short, worker_long
 
 # System prompt remains constant
