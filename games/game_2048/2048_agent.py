@@ -83,8 +83,8 @@ def capture_screenshot():
     """
     Captures the pygame window dynamically based on its detected position.
     """
-    os.makedirs("cache", exist_ok=True)
-    screenshot_path = "cache/2048_screenshot.png"
+    os.makedirs("cache/2048", exist_ok=True)
+    screenshot_path = "cache/2048/2048_screenshot.png"
 
     position = get_pygame_window_position()
     if position:
