@@ -33,7 +33,11 @@ Analyze the current Tetris board state and generate PyAutoGUI code to control Te
 for the next {plan_seconds} second(s). You can move left/right, rotate pieces. Focus on clearing lines and avoiding 
 stacking that would cause a top-out.
 
-At the time the code is executed, 3~5 seconds have elapsed. The game might have moved on to the next block.
+At the time the code is executed, 3~5 seconds have elapsed. The game might have moved on to the next block if the stack is high.
+
+However, in your code, consider only the current block or the next block.
+
+The speed it drops is at around ~0.75s/grid bock.
 
 ### General Tetris Controls (example keybinds):
 - left: move piece left
@@ -43,8 +47,8 @@ At the time the code is executed, 3~5 seconds have elapsed. The game might have 
 
 ### Strategies and Caveats:
 1. If the stack is high, most likely you are controlling the "next" block due to latency.
-2. Prioritize stacking on the sides. Balance the two sides.
-3. Prioritize keeping the stack flat.
+2. Prioritize keeping the stack flat. Balance the two sides.
+3. Consider shapes ahead of time. DO NOT rotate and quickly move the block again once it's position is decided.
 4. Avoid creating holes.
 5. If you see a chance to clear lines, rotate and move the block to correct positions.
 6. Plan for your next piece as well, but do not top out.

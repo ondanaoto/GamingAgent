@@ -25,7 +25,7 @@ def main():
                         help="Interval in seconds between workers.")
     parser.add_argument("--api_response_latency_estimate", type=float, default=5,
                         help="Estimated API response latency in seconds.")
-    parser.add_argument("-control_time", type=float, default=1.5,
+    parser.add_argument("-control_time", type=float, default=4,
                         help=" orker control time.")
     parser.add_argument("--policy", type=str, default="fixed", 
                         choices=["fixed"],
@@ -36,7 +36,6 @@ def main():
     worker_span = args.control_time + args.concurrency_interval
     num_threads = int(args.api_response_latency_estimate // worker_span)
     
-    # add another thread if needed, leaving between requests
     if args.api_response_latency_estimate % worker_span != 0:
         num_threads += 1
     
