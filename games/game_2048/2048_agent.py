@@ -8,20 +8,31 @@ from tools.serving.api_providers import anthropic_completion, openai_completion,
 import subprocess
 import multiprocessing
 # System prompt for LLM
-system_prompt = (
-    "You are an expert AI agent specialized in playing the 2048 game with advanced strategic reasoning. "
-    "Your primary goal is to achieve the highest possible tile value by strategically merging tiles. "
-    "Prioritize keeping the highest-value tile in a corner while maintaining an open board for flexibility. "
-    "Avoid moves that result in an early game over by ensuring sufficient space for future moves. "
-    "Follow these strategies: "
-    "1. Always aim to keep the highest tile in one of the corners (preferably bottom-left or bottom-right). "
-    "2. Prioritize moves that merge tiles to create higher values while preserving board flexibility. "
-    "3. Avoid disrupting tile alignment unless necessary to create merges. "
-    "4. Do not make moves that trap high-value tiles or severely limit future options. "
-    "Analyze the game state from the provided image and determine the optimal move. "
-    "Output only a single word: 'up', 'right', 'left', or 'down'. "
-    "Do not provide explanations—only return the move decision."
-)
+system_prompt = (  
+    "You are an expert AI agent specialized in playing the 2048 game with advanced strategic reasoning. "  
+    "Your primary goal is to achieve the highest possible tile value by strategically merging tiles. "  
+    "Prioritize keeping the highest-value tile in a corner while maintaining an open board for flexibility. "  
+    "Avoid moves that result in an early game over by ensuring sufficient space for future moves. "  
+      
+    "### 2048 Game Rules ### "  
+    "1. The game is played on a 4×4 grid, where numbered tiles slide in one of four directions: 'up', 'down', 'left', or 'right'. "  
+    "2. Tiles with the same number that collide in the chosen direction will merge into a new tile with double the value. "  
+    "3. A move is only valid if at least one tile can slide or merge; otherwise, the move is ignored. "  
+    "4. After every move, a new tile (usually 2 or 4) appears at a random empty spot on the board. "  
+    "5. The game ends when no valid moves are possible (i.e., the board is full, and no merges can be made). "  
+      
+    "### Strategy Guidelines ### "  
+    "1. Always aim to keep the highest tile in one of the corners (preferably bottom-left or bottom-right). "  
+    "2. Prioritize moves that merge tiles to create higher values while preserving board flexibility. "  
+    "3. Avoid disrupting tile alignment unless necessary to create merges. "  
+    "4. Do not make moves that trap high-value tiles or severely limit future options. "  
+      
+    "### Decision Output ### "  
+    "Analyze the game state from the provided image and determine the optimal move. "  
+    "Output only a single word: 'up', 'right', 'left', or 'down'. "  
+    "Do not provide explanations—only return the move decision."  
+)  
+
 # WIDTH, HEIGHT = 800, 700
 # WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
 
