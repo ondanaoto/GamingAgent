@@ -95,43 +95,44 @@ def capture_screenshot():
             mss.tools.to_png(screenshot.rgb, screenshot.size, output=screenshot_path)
 
     return screenshot_path
+from collections import deque
 
-def get_best_move(system_prompt, api_provider, model_name, prev_message):
+def get_best_move(system_prompt, api_provider, model_name, move_history):
     """
-    Takes a screenshot, sends it to the LLM, and extracts the best move and reasoning.
+    Takes a screenshot, sends it to the LLM, and extracts the best move and reasoning,
+    considering the previous four moves and thoughts.
     """
     screenshot_path = capture_screenshot()
     base64_image = encode_image(screenshot_path)
 
+    # Format the move history
+    history_prompt = "\n".join(
+        [f"{i+1}. move: {entry['move']}, thought: {entry['thought']}" for i, entry in enumerate(move_history)]
+    ) if move_history else "No previous moves."
+
     move_prompt = (
-    f"Your previous move and thought: {prev_message}\n"
+    f"Your last four moves and thoughts:\n{history_prompt}\n\n"
     "Analyze the 2048 game state from the image and determine the best move: 'up', 'right', 'left', or 'down'.\n"
+    "Avoid repeating mistakes and prioritize flexible, strategic moves that maximize tile merging and board control.\n\n"
     
     "### Move Evaluation ###\n"
     "1. **Check if the move is possible**: A move is only valid if at least one tile can slide or merge.\n"
-    "2. **Invalid moves should be ignored**: If a direction does not allow movement (i.e., no space or different numbers that cannot merge), do not consider it.\n\n"
+    "2. **Ignore invalid moves**: If a direction does not allow movement (i.e., no space or different numbers that cannot merge), do not consider it.\n"
+    "3. **Avoid repeating past moves** *only if* the last four moves contained just 1-2 unique directions. If the previous four moves were diverse, focus on selecting the optimal move based on board state.\n\n"
     
-    "### 2048 Game Rules ###\n"
-    "1. The game is played on a **4×4 grid**, where tiles move **up, down, left, or right**.\n"
-    "2. **Only adjacent tiles with the same number can merge**—tiles do not merge across empty spaces.\n"
-    "3. **Merging follows directionality:**\n"
-    "   - Rows: Tiles merge when moved **left or right**.\n"
-    "   - Columns: Tiles merge when moved **up or down**.\n"
-    "4. After each move, a new tile (**2 or 4**) spawns at a random empty spot.\n"
-    "5. The game ends when **no valid moves remain** (full board with no merges).\n\n"
+    "### 2048 Game Rules & Strategy ###\n"
+    "1. Keep the **highest-value tile in a corner**.\n"
+    "2. **Prioritize merging** over unnecessary movement.\n"
+    "3. **Avoid moves that limit future flexibility**.\n"
+    "4. If a deadlock is likely, **try an alternative strategy**.\n\n"
     
-    "### 2048 Strategy Guidelines ###\n"
-    "1. **Corner Strategy**: Keep the **highest-value tile in a corner** (preferably bottom-left or bottom-right).\n"
-    "2. **Merging Priority**: Prioritize **moves that create higher-value tiles** while maintaining board flexibility.\n"
-    "3. **Avoid Disruptions**: Do not break **tile alignment** unless necessary for a crucial merge.\n"
-    "4. **Prevent Traps**: Avoid moves that **isolate high-value tiles** or reduce future move options.\n"
-    "5. **Deadlock Prevention**: If moves become limited, **prioritize flexibility** to prevent an early game over.\n\n"
+    "### Decision-Making & Adaptation ###\n"
+    "1. If your thought is **similar to previous ones**, you might be repeating a mistake. Try a different approach.\n"
+    "2. If the last four moves include only **1-2 unique directions**, switch to a different move to avoid getting stuck.\n"
+    "3. If the last four moves were already varied, **focus on making the best possible move** rather than forcing a different one.\n\n"
     
-    "### Decision Making ###\n"
-    "Be careful. If your thought is the same as the previous thought, it may imply that you are making the same mistake repeatedly. Try a new and safe move.\n"
     "Provide your response in the strict format: move: \"<direction>\", thought: \"<brief reasoning>\"."
     )
-
 
     start_time = time.time()
 
@@ -161,7 +162,8 @@ def get_best_move(system_prompt, api_provider, model_name, prev_message):
 
 def main():
     """
-    Runs a single AI worker for 2048 in a loop without concurrency.
+    Runs a single AI worker for 2048 in a loop without concurrency,
+    keeping track of the last four moves.
     """
     parser = argparse.ArgumentParser(description="2048 LLM AI Agent (Single Worker)")
     parser.add_argument("--api_provider", type=str, default="openai",
@@ -176,11 +178,12 @@ def main():
     print(f"Starting 2048 AI Agent...")
     print(f"API Provider: {args.api_provider}, Model Name: {args.model_name}")
 
-    prev_message = ""
+    move_history = deque(maxlen=4)  # Store the last 4 moves
+
     try:
         while True:
-            move, thought = get_best_move(system_prompt, args.api_provider, args.model_name, prev_message)
-            prev_message =f"move: {move}, thought: {thought}"
+            move, thought = get_best_move(system_prompt, args.api_provider, args.model_name, list(move_history))
+            move_history.append({"move": move, "thought": thought})  # Add move to history
 
             if move in ["up", "right", "left", "down"]:
                 pyautogui.press(move)
@@ -189,8 +192,7 @@ def main():
             else:
                 print(f"Invalid move received: {move}, Thought: {thought}")
 
-
-            # time.sleep(args.loop_interval)  # Delay before next move
+            time.sleep(args.loop_interval)  # Delay before next move
 
     except KeyboardInterrupt:
         print("\nGame interrupted by user. Exiting...")
