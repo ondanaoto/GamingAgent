@@ -120,7 +120,7 @@ In our early experiments, 'alternate' policy performs well. Try it yourself and 
 
 Run the 2048 game with:  
 ```sh
-python game/game_2048/game_logic.py
+python games/game_2048/game_logic.py
 ```
 <p align="center">
 <img src="assets/2048/2048_sample.png" alt="2048" width="400" align="center">
@@ -128,5 +128,5 @@ python game/game_2048/game_logic.py
 Start the AI agent to play automatically:
 
 ```sh
-python game/game_2048/2048_agent.py
+python games/game_2048/2048_agent.py
 ```
