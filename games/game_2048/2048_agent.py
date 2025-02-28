@@ -29,8 +29,8 @@ def capture_screenshot():
     """
     Captures the full screen, saves it, and returns the image path.
     """
-    os.makedirs("cache", exist_ok=True)
-    screenshot_path = "cache/2048_screenshot.png"
+    os.makedirs("cache/2048", exist_ok=True)
+    screenshot_path = "cache/2048/2048_screenshot.png"
 
     # Capture full screen
     screen_width, screen_height = pyautogui.size()
