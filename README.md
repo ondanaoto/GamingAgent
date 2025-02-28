@@ -9,8 +9,8 @@
 - [Installation](#installation)
 - [APIs](#apis)
 - [Games](#games)
-  - Super Mario Bros 1985(#super-mario-bros-1985-by-nintendo)
-  - 2048 (#2048)
+  - [Super Mario Bros 1985](#super-mario-bros-1985-by-nintendo)
+  - [2048](#2048)
 
 ## Introduction
 
