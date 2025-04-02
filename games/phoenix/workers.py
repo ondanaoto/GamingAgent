@@ -604,19 +604,20 @@ def phoenix_worker(system_prompt, api_provider, model_name, modality, thinking,
     # Load recent history
     if os.path.exists(history_path):
         with open(history_path, "r") as f:
-            recent_history = "".join(f.readlines()[-50:])
+            recent_history = "".join(f.readlines()[-200:])
     else:
         recent_history = "No history yet."
 
     # Adjust prompt based on chapter
     allowed_keys = (
-            "- 'Z': Confirm/Next text\n"
-            "- 'B': Cancel/go back to dialogue\n"
-            "- Arrow keys (up down left right): Navigate choices or evidence\n"
-            "- 'R': Open Court Record, you may need to press left or right to view different evidence pages,\n"
-            "- 'X': Present selected evidence to the court\n"
-            "- 'L': Press the witness during cross-examination (ask for more detail). After pressing, you must press 'Z' to proceed.\n"
-        )
+    "- 'Z': Confirm/Next text\n"
+    "- 'B': Cancel/go back to previous dialogue\n"
+    "- Arrow keys (up down left right): Navigate choices or evidence\n"
+    "- 'R': Open Court Record, you may need to press left or right to view different evidence pages\n"
+    "- 'X': Present selected evidence to the court\n"
+    "- 'L': Press the witness during cross-examination (ask for more detail). After pressing, you must press 'Z' to proceed.\n"
+    )
+
     prompt = (
         "As an AI assistant playing Phoenix Wright, your goal is to decide the best next **single key press** "
         "based on the current game context.\n\n"
@@ -627,16 +628,22 @@ def phoenix_worker(system_prompt, api_provider, model_name, modality, thinking,
         f"Previous response: {prev_response}\n\n"
 
         "**Rules:**\n"
-        "- You may press 'R' to open the Court Record at any time to review evidence.\n"
-        "- After pressing 'R', you can only use left or right to browse evidence,'B' to back to dialogue or press 'X' to present evidence **if the previous dialogue text color is green**.\n"
-        "- After pressing 'L' to press a witness, press 'Z' to continue dialogue.\n"
+        "- You may press 'Z' to proceed through dialogue normally.\n"
+        "- If the **current dialogue text is green**, you are in cross-examination mode and additional keys become valid:\n"
+        "  - Press 'L' to press the witness.\n"
+        "  - Press 'R' to open the Court Record and inspect evidence.\n"
+        "  - Press 'X' to present the currently selected evidence.\n"
+        "  - Press left or right to navigate through previous or next testimony statements.\n"
+        "- After pressing 'R', press left/right to get to next evidence, (usually 5 or more). Press 'B' to return to dialogue.\n"
+        "- After pressing 'L', you need to press 'Z' to continue with the next statement.\n"
 
         "Only choose one key. Respond in this format:\n"
         '**move: "KEY", thought: "Reasoning or justification"**\n\n'
         "Example:\n"
-        '**move: "Z", thought: "Dialogue is ongoing; we should proceed to the next line."**'
-        '**move: "R", thought: "I want to review current evidence and present the correct evidence to the court in next move"**'
+        '**move: "Z", thought: "Dialogue is ongoing; we should proceed to the next line."**\n'
+        '**move: "R", thought: "We’re in cross-examination and should inspect the Court Record to find contradictions."**\n'
     )
+
 
 
     start_time = time.time()
