@@ -63,7 +63,7 @@ def main():
                 game_state = result["game_state"]
                 move = result["move"].strip().lower()
                 thought = result["thought"]
-                
+                    
                 # Print current game state
                 print(f"Current Game State: {game_state}")
                 

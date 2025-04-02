@@ -83,6 +83,7 @@ def vision_worker(system_prompt, api_provider, model_name,
         "   - Cross-Examination mode REQUIRES BOTH:\n"
         "     * A blue bar must be visible in the upper right corner\n"
         "     * The dialog text must be green in color\n"
+        "     * One solid checking method is to see whether they have options, press, present three UI elements at right down corner. If so, it is Cross-Examination mode.\n"
         "   - If either the blue bar is missing OR the dialog text is not green, it is NOT Cross-Examination mode\n"
         "   - Evidence mode is indicated by:\n"
         "     * An evidence presentation window\n"
@@ -310,10 +311,16 @@ def reasoning_worker(system_prompt, api_provider, model_name, game_state, scene,
     # Format evidence details for the prompt
     evidence_details = "\n".join([f"Evidence {i+1}: {e}" for i, e in enumerate(collected_evidences)])
     
+    print(f"----------------------------------")
+    print(f"Current Game State: {game_state}")
+    print(f"----------------------------------")
+
     # Construct the prompt for the API
     prompt = f"""You are Phoenix Wright, a defense attorney in Ace Attorney. Your goal is to prove your client's innocence by finding contradictions in witness testimonies and presenting the right evidence at the right time.
 
-Current Game State: {game_state}
+CURRENT GAME STATE: {game_state}
+This is your current state. All decisions must be based on this state only.
+
 Scene Description: {scene}
 
 Evidence Status:
@@ -329,53 +336,51 @@ thought: <explanation>
 
 Game State Strategies:
 
-1. Evidence Collection Priority:
-   - If no evidence has been collected yet (Total Evidence Collected: 0):
-     * In Conversation or Cross-Examination state: Use court_record to switch to Evidence state
-     * In Evidence state: Use right to navigate through all evidence items
-   - Always collect all available evidence before proceeding with other actions
-   - Only exit Evidence state (using cancel) after collecting all evidence
+1. Evidence Collection Priority (Applies to ALL states):
+   - If no evidence has been collected (Total Evidence Collected: 0):
+     * Use court_record to enter Evidence mode
+     * Navigate through all evidence items using right
+     * Only exit Evidence mode after collecting all evidence
+   - If in Evidence mode:
+     * Use right to navigate through evidence items
+     * Use cancel only after collecting all evidence
+   - If all evidence is collected:
+     * Continue with normal game flow
 
-2. Cross-Examination Mode:
-   - Your primary goal is to find contradictions in the witness's testimony
-   - You must choose between:
-     * press: Ask for more details when you suspect there's more to the story
-     * court_record: Open the court record to present evidence
-     * present: Present selected evidence to point out contradictions
-   - Strategy:
-     * First, analyze the current testimony carefully
-     * Look for inconsistencies with previous statements or evidence
-     * If you need more information to find a contradiction, use press
-     * When you've identified a contradiction, use court_record to present the evidence
-     * Remember: You can only present evidence during cross-examination
+2. Conversation Mode (CURRENT STATE: {game_state}):
+   - If evidence collection is needed:
+     * Use court_record to enter Evidence mode
+   - If all evidence is collected:
+     * Use confirm to continue the conversation
+   - DO NOT use any other commands in Conversation mode
+   - No press command in Conversation mode
 
-3. Conversation Mode:
-   - Your goal is to gather information and advance the story
-   - ONLY use confirm to continue the conversation
-   - DO NOT use press in Conversation mode
-   - Pay attention to new information that might be useful later
-   - Collect statements that might help in cross-examination
+3. Cross-Examination Mode (CURRENT STATE: {game_state}):
+   - If evidence collection is needed:
+     * Use court_record to enter Evidence mode
+   - If all evidence is collected:
+     * Use press to question the witness
+     * Use present to show evidence when you find a contradiction
+   - DO NOT use court_record if all evidence is collected
 
-4. Evidence Mode:
-   - Your goal is to examine and collect evidence
-   - Use left/right to navigate through evidence
-   - Be careful about your previous manipulations
-   - Make sure your actions are coherent with the current investigation
-   - When you've finished examining evidence, use cancel to exit evidence mode
+4. Evidence Mode (CURRENT STATE: {game_state}):
+   - Use right to navigate through evidence items
+   - Use cancel to exit only after collecting all evidence
+   - DO NOT exit Evidence mode until all evidence is collected
 
 Available moves:
-- In Cross-Examination:
-  * press: Press the witness for more information when you need clarification
-  * court_record: Open the court record to present evidence
-  * present: Present selected evidence to point out contradictions
 - In Conversation:
-  * confirm: Continue the conversation and collect statements
-  * court_record: Open the court record to examine evidence
+  * confirm: Continue the conversation
+  * court_record: Enter Evidence mode (only if evidence collection needed)
+- In Cross-Examination:
+  * press: Question the witness
+  * present: Show evidence
+  * court_record: Enter Evidence mode (only if evidence collection needed)
 - In Evidence:
-  * left/right: Navigate through evidence
-  * cancel: Exit evidence mode when finished
+  * right: Navigate through evidence
+  * cancel: Exit Evidence mode (only after collecting all evidence)
 
-Choose the most appropriate move and explain your reasoning. Focus on finding contradictions in cross-examination and presenting the right evidence at the right time."""
+Choose the most appropriate move and explain your reasoning. Focus on finding contradictions in cross-examination and presenting the right evidence at the right time. Remember to only use commands that are valid for your current game state."""
 
     # Call the API
     if api_provider == "anthropic" and modality=="text-only":
@@ -531,7 +536,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         scene,
         complete_memory,
         base64_image=encode_image(vision_result["screenshot_path"]),
-        modality=modality,
+        modality='text-only',
         thinking=thinking
     )
     print("[Reasoning Result]")
