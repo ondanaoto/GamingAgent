@@ -126,6 +126,13 @@
             "Mia: You hold the key! It's in the evidence! Compare the witness's testimony to the evidence at hand. There's bound to be a contradiction in there! First, find contradictions between the Court Record and the witness's testimony. Then, once you've found the contradicting evidence... present it and rub it in the witness's face!",
             "Phoenix: Um... okay.",
             "Mia: Open the Court Record with [the R Button / Tab], then point out contradictions in the testimony!"
+        ],
+        "evidences": [
+            "Attorney's Badge: No one would believe I was a defense attorney if I didn't carry this.",
+            "Cindy's Autopsy Report: Time of death: 7/31, 4PM - 5PM. Cause of death: loss of blood due to blunt trauma.",
+            "Statue: A statue in the shape of \"The Thinker.\" It's rather heavy.",
+            "Passport: The victim apparently arrived home from Paris on 7/30, the day before the murder.",
+            "Blackout Record: Electricity to Ms. Stone's building was out from noon to 6PM on the day of the crime."
         ]
     }
 }

@@ -13,13 +13,13 @@ CACHE_DIR = "cache/ace_attorney"
 def perform_move(move):
     key_map = {
         # Core actions
-        "confirm": "enter",
-        "present": "e",
-        "court_record": "tab",
+        "confirm": "z",
+        "present": "x",
+        "court_record": "r",
         "profiles": "r",
         "cancel": "backspace",
-        "press": "q",
-        "options": "esc",
+        "press": "l",
+        "options": "1",
         "return_title": "j",
         
         # Movement controls
@@ -80,39 +80,29 @@ def vision_worker(system_prompt, api_provider, model_name,
     prompt = (
         "You are now playing Ace Attorney. Analyze the current scene and provide the following information:\n\n"
         "1. Game State Detection Rules:\n"
-        "   - Cross-Examination mode REQUIRES BOTH:\n"
-        "     * A blue bar must be visible in the upper right corner\n"
-        "     * The dialog text must be green in color\n"
-        "     * One solid checking method is to see whether they have options, press, present three UI elements at right down corner. If so, it is Cross-Examination mode.\n"
-        "   - If either the blue bar is missing OR the dialog text is not green, it is NOT Cross-Examination mode\n"
-        "   - Evidence mode is indicated by:\n"
-        "     * An evidence presentation window\n"
-        "     * Evidence items being displayed\n"
-        "   - If you don't see any Cross-Examination indicators (blue bar OR green text) and there's no evidence window, it's Conversation mode\n\n"
+        "   - Cross-Examination mode is indicated by ANY of these:\n"
+        "     * A blue bar in the upper right corner\n"
+        "     * Green dialog text\n"
+        "     * Options, press, present UI elements at right down corner\n"
+        "     * An evidence window visible in the middle of the screen\n"
+        "   - If you see an evidence window, it is ALWAYS Cross-Examination mode\n"
+        "   - If you don't see any Cross-Examination indicators, it's Conversation mode\n\n"
         "2. Dialog Text Analysis:\n"
         "   - Look at the bottom-left area where dialog appears\n"
-        "   - Note the white color of the dialog text\n"
+        "   - Note the color of the dialog text (green/white)\n"
         "   - Extract the speaker's name and their dialog\n"
-        "   - Format must be exactly: Dialog: NAME: dialog text\n"
-        "   - If in Evidence mode, output: Dialog: None\n\n"
-        "3. Evidence Analysis:\n"
-        "   - Look at the evidence presentation window\n"
-        "   - For each evidence item, provide its name and description\n"
-        "   - Format must be exactly: Evidence: NAME: description\n"
-        "   - If not in Evidence mode, output: Evidence: None\n\n"
-        "4. Scene Analysis:\n"
+        "   - Format must be exactly: Dialog: NAME: dialog text\n\n"
+        "3. Scene Analysis:\n"
         "   - Describe any visible characters and their expressions/poses\n"
-        "   - Is there an evidence presentation window? How many evidence items are visible?\n"
-        "   - If in Evidence mode, count and mention the total number of evidence items visible\n"
         "   - Describe any other important visual elements or interactive UI components\n"
         "   - You MUST explicitly mention:\n"
         "     * The color of the dialog text (green/white)\n"
         "     * Whether there is a blue bar in the upper right corner\n"
-        "     * The presence/absence of evidence windows\n\n"
+        "     * The presence of options, press, present UI elements\n"
+        "     * Whether there is an evidence window visible\n\n"
         "Format your response EXACTLY as:\n"
-        "Game State: <'Cross-Examination' or 'Conversation' or 'Evidence'>\n"
+        "Game State: <'Cross-Examination' or 'Conversation'>\n"
         "Dialog: NAME: dialog text\n"
-        "Evidence: NAME: description\n"
         "Scene: <detailed description including dialog color, blue bar presence, and other visual elements>"
     )
 
@@ -249,11 +239,12 @@ def memory_retrieval_worker(system_prompt, api_provider, model_name,
     """
     Retrieves and composes complete memory context from long-term and short-term memory.
     """
-    # Load background conversation context
+    # Load background conversation context and evidence from ace_attorney_1.json
     background_file = "games/ace_attorney/ace_attorney_1.json"
     with open(background_file, 'r') as f:
         background_data = json.load(f)
     background_context = background_data[episode_name]["Case_Transcript"]
+    available_evidences = background_data[episode_name]["evidences"]
 
     # Load current episode memory
     memory_file = os.path.join("cache", "ace_attorney", "dialog_history", f"{episode_name.lower().replace(' ', '_')}.json")
@@ -263,11 +254,9 @@ def memory_retrieval_worker(system_prompt, api_provider, model_name,
         current_episode = memory_data[episode_name]
         cross_examination_context = current_episode["Case_Transcript"]
         prev_responses = current_episode.get("prev_responses", [])
-        collected_evidences = current_episode.get("evidences", [])
     else:
         cross_examination_context = []
         prev_responses = []
-        collected_evidences = []
 
     # Compose complete memory context
     memory_context = f"""Background Conversation Context:
@@ -279,8 +268,9 @@ Cross-Examination Conversation Context:
 Previous 7 manipulations:
 {chr(10).join(prev_responses)}
 
-Collected Evidences:
-{chr(10).join(collected_evidences)}"""
+Available Evidence:
+(You can find these evidences in the evidence window. If there is a clear contradiction, please feel free to use court_record to open the evidence window and present the evidence in the cross-examination mode.) 
+{chr(10).join(available_evidences)}"""
 
     return memory_context
 
@@ -304,12 +294,11 @@ def reasoning_worker(system_prompt, api_provider, model_name, game_state, scene,
         dict: Contains move and thought
     """
     # Extract and format evidence information
-    evidences_section = memory_context.split("Collected Evidences:")[1].strip()
-    collected_evidences = [e for e in evidences_section.split("\n") if e.strip()]
-    num_collected_evidences = len(collected_evidences)
+    evidences_section = memory_context.split("Available Evidence:")[1].strip()
+    available_evidences = [e for e in evidences_section.split("\n") if e.strip()]
     
     # Format evidence details for the prompt
-    evidence_details = "\n".join([f"Evidence {i+1}: {e}" for i, e in enumerate(collected_evidences)])
+    evidence_details = "\n".join([f"Evidence {i+1}: {e}" for i, e in enumerate(available_evidences)])
     
     print(f"----------------------------------")
     print(f"Current Game State: {game_state}")
@@ -323,8 +312,7 @@ This is your current state. All decisions must be based on this state only.
 
 Scene Description: {scene}
 
-Evidence Status:
-- Total Evidence Collected: {num_collected_evidences}
+Available Evidence:
 {evidence_details}
 
 Memory Context:
@@ -336,49 +324,41 @@ thought: <explanation>
 
 Game State Strategies:
 
-1. Evidence Collection Priority (Applies to ALL states):
-   - If no evidence has been collected (Total Evidence Collected: 0):
-     * Use court_record to enter Evidence mode
-     * Navigate through all evidence items using right
-     * Only exit Evidence mode after collecting all evidence
-   - If in Evidence mode:
-     * Use right to navigate through evidence items
-     * Use cancel only after collecting all evidence
-   - If all evidence is collected:
-     * Continue with normal game flow
-
-2. Conversation Mode (CURRENT STATE: {game_state}):
-   - If evidence collection is needed:
-     * Use court_record to enter Evidence mode
-   - If all evidence is collected:
-     * Use confirm to continue the conversation
+1. Conversation Mode (CURRENT STATE: {game_state}):
+   - Use confirm to continue the conversation
    - DO NOT use any other commands in Conversation mode
    - No press command in Conversation mode
 
-3. Cross-Examination Mode (CURRENT STATE: {game_state}):
-   - If evidence collection is needed:
-     * Use court_record to enter Evidence mode
-   - If all evidence is collected:
-     * Use press to question the witness
-     * Use present to show evidence when you find a contradiction
-   - DO NOT use court_record if all evidence is collected
-
-4. Evidence Mode (CURRENT STATE: {game_state}):
-   - Use right to navigate through evidence items
-   - Use cancel to exit only after collecting all evidence
-   - DO NOT exit Evidence mode until all evidence is collected
+2. Cross-Examination Mode (CURRENT STATE: {game_state}):
+   - ALWAYS compare the witness's statement with the available evidence
+   - For each statement, you have two options:
+     * If you find a clear contradiction with evidence: (Three steps, you can only do one step at a time. Be coherent with previous response.)
+       - First step: Use court_record to open the evidence window
+       - Second step: Navigate through evidence using right/left
+         * Look at each evidence carefully
+         * Only stop when you find the evidence that directly contradicts the statement
+         * If the current evidence doesn't match, keep navigating
+         * Be absolutely sure the evidence contradicts the statement before presenting
+       - Third step: Use present to show the contradicting evidence
+         * Only present when you're certain this is the right evidence
+         * The evidence must directly contradict the witness's statement
+       - No need to ask more questions if you're confident about the contradiction
+     * If you don't find a contradiction or need more information:
+       - Use press to question the witness about their statement
+       - Or use confirm to move to their next statement if you don't need to ask more
+   - The evidence window will automatically close after showing evidence
+   - DO NOT use present/court_record unless you have found a clear contradiction
+   - DO NOT use present/court_record if you don't see an evidence window
 
 Available moves:
 - In Conversation:
   * confirm: Continue the conversation
-  * court_record: Enter Evidence mode (only if evidence collection needed)
 - In Cross-Examination:
-  * press: Question the witness
-  * present: Show evidence
-  * court_record: Enter Evidence mode (only if evidence collection needed)
-- In Evidence:
-  * right: Navigate through evidence
-  * cancel: Exit Evidence mode (only after collecting all evidence)
+  * press: Question the witness about their current statement
+  * confirm: Move to the next statement if you don't need to ask more
+  * court_record: Open the evidence window to show contradicting evidence
+  * present: Show the selected evidence (only when you're certain it contradicts)
+  * left/right: Navigate through evidence items to find the correct one
 
 Choose the most appropriate move and explain your reasoning. Focus on finding contradictions in cross-examination and presenting the right evidence at the right time. Remember to only use commands that are valid for your current game state."""
 
@@ -452,7 +432,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     response_text = vision_result["response"]
     
     # Extract Game State
-    game_state_match = re.search(r"Game State:\s*(Cross-Examination|Conversation|Evidence)", response_text)
+    game_state_match = re.search(r"Game State:\s*(Cross-Examination|Conversation)", response_text)
     game_state = game_state_match.group(1) if game_state_match else "Unknown"
     
     # Extract Dialog (with NAME: text format)
@@ -460,13 +440,6 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     dialog = {
         "name": dialog_match.group(1) if dialog_match else "",
         "text": dialog_match.group(2).strip() if dialog_match else ""
-    }
-    
-    # Extract Evidence
-    evidence_match = re.search(r"Evidence:\s*([^:\n]+):\s*(.+?)(?=\n|$)", response_text)
-    evidence = {
-        "name": evidence_match.group(1) if evidence_match else "",
-        "description": evidence_match.group(2).strip() if evidence_match else ""
     }
     
     # Extract Scene Description
@@ -477,8 +450,8 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     # First, update long-term and short-term memory
     if game_state == "Evidence":
         # If in Evidence mode, update evidence instead of dialog
-        if evidence["name"] and evidence["description"]:
-            evidence_file = long_term_memory_worker(
+        if dialog["name"] and dialog["text"]:
+            dialog_file = long_term_memory_worker(
                 system_prompt,
                 api_provider,
                 model_name,
@@ -486,10 +459,10 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
                 thinking,
                 modality,
                 episode_name,
-                evidence=evidence
+                dialog=dialog
             )
     else:
-        # If in Conversation or Cross-Examination mode, update dialog
+        # If in Conversation mode, update dialog
         if dialog["name"] and dialog["text"]:
             dialog_file = long_term_memory_worker(
                 system_prompt,
@@ -536,7 +509,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         scene,
         complete_memory,
         base64_image=encode_image(vision_result["screenshot_path"]),
-        modality='text-only',
+        modality=modality,
         thinking=thinking
     )
     print("[Reasoning Result]")
@@ -545,7 +518,6 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     parsed_result = {
         "game_state": game_state,
         "dialog": dialog,
-        "evidence": evidence,
         "scene": scene,
         "screenshot_path": vision_result["screenshot_path"],
         "memory_context": complete_memory,
