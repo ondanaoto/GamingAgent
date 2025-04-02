@@ -10,7 +10,6 @@ from tools.serving.api_providers import anthropic_completion, openai_completion,
 
 cache_dir = "cache/phoenix"
 history_path = os.path.join(cache_dir, "phoenix_history.txt")
-evidence = True
 
 def update_history(entry):
     """
@@ -459,9 +458,10 @@ def phoenix_read_worker(system_prompt, api_provider, model_name, image_path, mod
         "Your task is to extract key scene information for decision-making:\n"
         "- Who is speaking (name or 'Unknown')?\n"
         "- What is the dialogue text?\n"
-        "- What color is used for the speaker name or text, if any? (e.g., white, blue, orange, gray, red)\n"
+        "- What color is used for the dialogue text, if any? (e.g., white, blue, green)\n"
         "- Are there menu choices, evidence shown, or objection moments?\n"
         "- Any visual cues or context that hint at the intensity or purpose of this moment?\n\n"
+
         "Respond in this strict format:\n"
         "- Speaker: [Name or Unknown]\n"
         "- Color: [Text color or 'Unknown']\n"
@@ -494,14 +494,61 @@ def phoenix_read_worker(system_prompt, api_provider, model_name, image_path, mod
     structured_board = response.strip()
     
     # Generate final text output
-    final_output = "\nCandy Crush Board Representation:\n" + structured_board
-    update_history(f"Scene analysis:\n{structured_board}")
+    final_output = "\nScene analysis:\n" + structured_board
+    update_history(final_output)
 
     return final_output
 
+def phoenix_read_evidence_worker(system_prompt, api_provider, model_name, image_path, modality, thinking):
+    base64_image = encode_image(image_path)
+    
+    # Construct prompt for LLM
+    prompt = (
+        "You are analyzing a screenshot from the game 'Phoenix Wright: Ace Attorney'. "
+        "Your task is to extract key scene information for decision-making:\n"
+        "- What is the current evidence name?\n"
+        "- Is there any text or description in the evidence? \n"
+        "- Any visual cues or context that hint at the intensity or purpose of this moment?\n\n"
+
+        "Respond in this strict format:\n"
+        "- Evidence: [Item Name or Unknown]\n"
+        "- Text: [any text in the evidence]\n"
+        "- Context: [Brief scene summary]"
+    )
+
+
+    
+    # Call LLM API based on provider
+    if api_provider == "anthropic" and modality=="text-only":
+        response = anthropic_text_completion(system_prompt, model_name, prompt, thinking)
+    elif api_provider == "anthropic":
+        response = anthropic_completion(system_prompt, model_name, base64_image, prompt, thinking)
+    elif api_provider == "openai" and "o3" in model_name and modality=="text-only":
+        response = openai_text_reasoning_completion(system_prompt, model_name, prompt)
+    elif api_provider == "openai":
+        response = openai_completion(system_prompt, model_name, base64_image, prompt)
+    elif api_provider == "gemini" and modality=="text-only":
+        response = gemini_text_completion(system_prompt, model_name, prompt)
+    elif api_provider == "gemini":
+        response = gemini_completion(system_prompt, model_name, base64_image, prompt)
+    elif api_provider == "deepseek":
+        response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
+    else:
+        raise NotImplementedError(f"API provider: {api_provider} is not supported.")
+    
+    # Process response and format as structured board output
+    structured_board = response.strip()
+    
+    # Generate final text output
+    final_output = "\nScene analysis:\n" + structured_board
+    update_history(final_output)
+
+    return final_output
+
+
 def phoenix_worker(system_prompt, api_provider, model_name, modality, thinking,
-                   crop_left=700, crop_right=800, crop_top=300, crop_bottom=300,
-                   grid_rows=7, grid_cols=7, prev_response="", chapter=1, evidence= evidence):
+                   crop_left=0, crop_right=0, crop_top=0, crop_bottom=0,
+                   grid_rows=7, grid_cols=7, prev_response="", evidence=False):
     """
     AI agent worker for Phoenix Wright: Ace Attorney.
     1) Waits, captures a screenshot of the current game state.
@@ -523,7 +570,6 @@ def phoenix_worker(system_prompt, api_provider, model_name, modality, thinking,
     os.makedirs(cache_dir, exist_ok=True)
     screenshot_path = os.path.join(cache_dir, "screenshot.png")
     screenshot.save(screenshot_path)
-
     if evidence == False:
         # Annotate and crop image
         annotate_image_path, grid_annotation_path, annotate_cropped_image_path= get_annotate_img(
@@ -536,64 +582,60 @@ def phoenix_worker(system_prompt, api_provider, model_name, modality, thinking,
             grid_cols=1,
             cache_dir=cache_dir
         )
+        phoenix_text_table = phoenix_read_worker(system_prompt, api_provider, model_name,
+                                             annotate_cropped_image_path, modality, thinking)
     else:
         # Annotate and crop image
         annotate_image_path, grid_annotation_path, annotate_cropped_image_path= get_annotate_img(
             screenshot_path,
-            crop_left=crop_left,
-            crop_right=crop_right,
-            crop_top=400,
-            crop_bottom=400,
+            crop_left=crop_left+50,
+            crop_right=crop_right+50,
+            crop_top=crop_top+100,
+            crop_bottom=crop_bottom+200,
             grid_rows=1,
-            grid_cols=10,
+            grid_cols=1,
             cache_dir=cache_dir
         )
-    # Extract scene info from image
-    phoenix_text_table = phoenix_read_worker(system_prompt, api_provider, model_name,
+        phoenix_text_table = phoenix_read_evidence_worker(system_prompt, api_provider, model_name,
                                              annotate_cropped_image_path, modality, thinking)
+
+    
 
     # Load recent history
     if os.path.exists(history_path):
         with open(history_path, "r") as f:
-            recent_history = "".join(f.readlines()[-10:])
+            recent_history = "".join(f.readlines()[-50:])
     else:
         recent_history = "No history yet."
 
     # Adjust prompt based on chapter
     allowed_keys = (
             "- 'Z': Confirm/Next text\n"
-            "- 'B': Cancel/go back\n"
+            "- 'B': Cancel/go back to dialogue\n"
             "- Arrow keys (up down left right): Navigate choices or evidence\n"
             "- 'R': Open Court Record, you may need to press left or right to view different evidence pages,\n"
             "- 'X': Present selected evidence to the court\n"
             "- 'L': Press the witness during cross-examination (ask for more detail). After pressing, you must press 'Z' to proceed.\n"
         )
-
-    # Prompt to LLM
     prompt = (
-        "Only choose one key. Respond with:\n"
-        '**move: "KEY", thought: "Reasoning or justification"**\n\n'
-        "Example:\n"
-        '**move: "Z", thought: "Dialogue is ongoing; we should proceed to the next line."**'
-    )
-    prompt = (
-        f"Recent History:\n{recent_history}\n\n"
-        f"Scene:\n{phoenix_text_table}\n\n"
-        f"Previous response: {prev_response}\n\n"
         "As an AI assistant playing Phoenix Wright, your goal is to decide the best next **single key press** "
         "based on the current game context.\n\n"
+        f"Scene:\n{phoenix_text_table}\n\n"
         f"Available keys:\n{allowed_keys}\n\n"
+
+        f"Recent History:\n{recent_history}\n\n"
+        f"Previous response: {prev_response}\n\n"
 
         "**Rules:**\n"
         "- You may press 'R' to open the Court Record at any time to review evidence.\n"
-        "- After pressing 'R', you may use left or right to browse evidence, and 'B' to exit.\n"
-        "- You may only press 'X' to present evidence **if the dialogue text color is green**.\n"
-        "- After pressing 'L' to press a witness, press 'Z' afterward to continue dialogue.\n"
+        "- After pressing 'R', you can only use left or right to browse evidence,'B' to back to dialogue or press 'X' to present evidence **if the previous dialogue text color is green**.\n"
+        "- After pressing 'L' to press a witness, press 'Z' to continue dialogue.\n"
 
         "Only choose one key. Respond in this format:\n"
         '**move: "KEY", thought: "Reasoning or justification"**\n\n'
         "Example:\n"
         '**move: "Z", thought: "Dialogue is ongoing; we should proceed to the next line."**'
+        '**move: "R", thought: "I want to review current evidence and present the correct evidence to the court in next move"**'
     )
 
 
@@ -647,10 +689,8 @@ def phoenix_worker(system_prompt, api_provider, model_name, modality, thinking,
     time.sleep(0.1)
     pyautogui.keyUp(key)
 
-    if key == "r":
-        evidence = True
     # Log
     log_move_and_thought(key.upper(), thought_text, latency)
     log_output("phoenix_worker", f"[INFO] Key pressed: {key.upper()} | Thought: {thought_text} | Latency: {latency:.2f} sec", "phoenix")
 
-    return response
+    return response, key

@@ -36,15 +36,14 @@ def main():
     args = parser.parse_args()
 
     prev_responses = deque(maxlen=7)
-
+    evidence = False
     try:
         while True:
             start_time = time.time()
-
             # Execute the phoenix worker
-            latest_response = phoenix_worker(system_prompt, args.api_provider, args.model_name, args.modality, str2bool(args.thinking),
+            latest_response, key = phoenix_worker(system_prompt, args.api_provider, args.model_name, args.modality, str2bool(args.thinking),
                                                  args.crop_left, args.crop_right, args.crop_top, args.crop_bottom, 
-                                                 args.grid_rows, args.grid_cols, " ".join(prev_responses))
+                                                 args.grid_rows, args.grid_cols, " ".join(prev_responses), evidence)
             # break
             if latest_response:
                 prev_responses.append(latest_response)
@@ -52,6 +51,11 @@ def main():
             time.sleep(1)
             print("[debug] previous message:")
             print("\n".join(prev_responses))
+
+            if key == "r":
+                evidence = True
+            if key == "b":
+                evidence = False
 
     except KeyboardInterrupt:
         print("\n[INFO] Stopping game automation. Goodbye!")
