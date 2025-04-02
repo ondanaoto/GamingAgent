@@ -83,20 +83,28 @@ def vision_worker(system_prompt, api_provider, model_name,
         "   - Cross-Examination mode is indicated by either:\n"
         "     * A blue bar in the upper right corner\n"
         "     * Dialog text appearing in green color\n"
+        "   - Evidence mode is indicated by:\n"
+        "     * An evidence presentation window\n"
+        "     * Evidence items being displayed\n"
         "   - If neither is present, it's Conversation mode\n\n"
         "2. Dialog Text (Focus on lower-left portion of screen):\n"
         "   - Look at the bottom-left area where dialog appears\n"
         "   - Extract the speaker's name and their dialog\n"
         "   - Format must be exactly: Dialog: NAME: dialog text\n"
-        "   - Name should be exactly as shown on screen\n\n"
-        "3. Scene Details:\n"
+        "   - If in Evidence mode, output: Dialog: None\n\n"
+        "3. Evidence (If in Evidence mode):\n"
+        "   - Look at the evidence presentation window\n"
+        "   - Format must be exactly: Evidence: NAME: description\n"
+        "   - If not in Evidence mode, output: Evidence: None\n\n"
+        "4. Scene Details:\n"
         "   - Describe any visible characters and their expressions/poses\n"
         "   - Is there an evidence presentation window? If yes, what evidence items are visible?\n"
         "   - Describe any other important visual elements or interactive UI components\n"
         "   - Note any visual cues that might be important for gameplay\n\n"
         "Format your response EXACTLY as:\n"
-        "Game State: <'Cross-Examination' or 'Conversation'>\n"
+        "Game State: <'Cross-Examination' or 'Conversation' or 'Evidence'>\n"
         "Dialog: NAME: dialog text\n"
+        "Evidence: NAME: description\n"
         "Scene: <detailed description of characters, evidence, UI elements, and important visual information>"
     )
 
@@ -118,7 +126,7 @@ def vision_worker(system_prompt, api_provider, model_name,
         response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-
+    
     return {
         "response": response,
         "screenshot_path": screenshot_path
@@ -129,47 +137,48 @@ def long_term_memory_worker(system_prompt, api_provider, model_name,
     thinking=True, 
     modality="vision-text",
     episode_name="The First Turnabout",
-    dialog=None
+    dialog=None,
+    evidence=None
     ):
     """
-    Maintains a long-term memory of dialog history by appending new dialog text to a JSON file.
-    Args:
-        episode_name (str): Name of the current episode
-        dialog (dict): Dialog information containing speaker name and text
+    Maintains dialog history for the current episode.
+    If evidence is provided, adds it to the evidences list.
     """
-    if not dialog:
-        return
-        
-    # Create cache directory if it doesn't exist
-    cache_dir = os.path.join(CACHE_DIR, "dialog_history")
+    # Create cache directory for dialog history if it doesn't exist
+    cache_dir = os.path.join("cache", "ace_attorney", "dialog_history")
     os.makedirs(cache_dir, exist_ok=True)
-    
-    # JSON file path for the episode
+
+    # Define the JSON file path based on the episode name
     json_file = os.path.join(cache_dir, f"{episode_name.lower().replace(' ', '_')}.json")
-    
-    # Load existing dialog history or create new one
+
+    # Load existing dialog history or initialize new structure
     if os.path.exists(json_file):
-        with open(json_file, 'r', encoding='utf-8') as f:
+        with open(json_file, 'r') as f:
             dialog_history = json.load(f)
     else:
         dialog_history = {
             episode_name: {
-                "Case_Transcript": []
+                "Case_Transcript": [],
+                "evidences": []
             }
         }
-    
-    # Format dialog as "NAME: text"
-    dialog_text = f"{dialog['name']}: {dialog['text']}"
-    
-    # Add new dialog entry if it's not already the last entry
-    current_transcript = dialog_history[episode_name]["Case_Transcript"]
-    if not current_transcript or current_transcript[-1] != dialog_text:
-        current_transcript.append(dialog_text)
-        
-        # Save updated dialog history
-        with open(json_file, 'w', encoding='utf-8') as f:
-            json.dump(dialog_history, f, indent=4, ensure_ascii=False)
-            
+
+    # Update dialog history if dialog is provided
+    if dialog and dialog["name"] and dialog["text"]:
+        dialog_entry = f"{dialog['name']}: {dialog['text']}"
+        if dialog_entry not in dialog_history[episode_name]["Case_Transcript"]:
+            dialog_history[episode_name]["Case_Transcript"].append(dialog_entry)
+
+    # Update evidence if provided
+    if evidence and evidence["name"] and evidence["description"]:
+        evidence_entry = f"{evidence['name']}: {evidence['description']}"
+        if evidence_entry not in dialog_history[episode_name]["evidences"]:
+            dialog_history[episode_name]["evidences"].append(evidence_entry)
+
+    # Save the updated dialog history
+    with open(json_file, 'w') as f:
+        json.dump(dialog_history, f, indent=2)
+
     return json_file
 
 def short_term_memory_worker(system_prompt, api_provider, model_name, 
@@ -202,7 +211,8 @@ def short_term_memory_worker(system_prompt, api_provider, model_name,
         dialog_history = {
             episode_name: {
                 "Case_Transcript": [],
-                "prev_responses": []
+                "prev_responses": [],
+                "evidences": []
             }
         }
     
@@ -229,64 +239,42 @@ def memory_retrieval_worker(system_prompt, api_provider, model_name,
     episode_name="The First Turnabout"
     ):
     """
-    Retrieves and composes memory context from long-term and short-term memory.
-    Returns a formatted string containing background context, cross-examination context, and recent manipulations.
+    Retrieves and composes complete memory context from long-term and short-term memory.
     """
-    # Create cache directory path for dialog history
-    cache_dir = os.path.join(CACHE_DIR, "dialog_history")
-    json_file = os.path.join(cache_dir, f"{episode_name.lower().replace(' ', '_')}.json")
-    
-    # Initialize memory components
-    background_context = ""
-    cross_examination_context = ""
-    previous_manipulations = ""
-    
-    # Load background conversation context from ace_attorney_1.json
-    background_file = os.path.join("games/ace_attorney/ace_attorney_1.json")
-    print(f"\n[DEBUG] Attempting to load background file from: {background_file}")
-    
-    if os.path.exists(background_file):
-        print("[DEBUG] Background file found!")
-        with open(background_file, 'r', encoding='utf-8') as f:
-            background_data = json.load(f)
-            print(f"[DEBUG] Loaded background data keys: {list(background_data.keys())}")
-            
-            if "The First Turnabout" in background_data and "Case_Transcript" in background_data["The First Turnabout"]:
-                background_context = "\n".join(background_data["The First Turnabout"]["Case_Transcript"])
-                print(f"[DEBUG] Successfully loaded {len(background_data['The First Turnabout']['Case_Transcript'])} lines of background context")
-                print("[DEBUG] First few lines of background context:")
-                print("\n".join(background_data["The First Turnabout"]["Case_Transcript"][:3]))
-            else:
-                print("[DEBUG] Could not find 'The First Turnabout' or 'Case_Transcript' in background data")
-    else:
-        print(f"[DEBUG] Background file not found at: {background_file}")
-    
-    # Load and process memory if file exists
-    if os.path.exists(json_file):
-        print(f"\n[DEBUG] Loading current episode memory from: {json_file}")
-        with open(json_file, 'r', encoding='utf-8') as f:
+    # Load background conversation context
+    background_file = "games/ace_attorney/ace_attorney_1.json"
+    with open(background_file, 'r') as f:
+        background_data = json.load(f)
+    background_context = background_data[episode_name]["Case_Transcript"]
+
+    # Load current episode memory
+    memory_file = os.path.join("cache", "ace_attorney", "dialog_history", f"{episode_name.lower().replace(' ', '_')}.json")
+    if os.path.exists(memory_file):
+        with open(memory_file, 'r') as f:
             memory_data = json.load(f)
-            
-            # Extract cross-examination context from current episode
-            if episode_name in memory_data and "Case_Transcript" in memory_data[episode_name]:
-                cross_examination_context = "\n".join(memory_data[episode_name]["Case_Transcript"])
-                print(f"[DEBUG] Successfully loaded {len(memory_data[episode_name]['Case_Transcript'])} lines of cross-examination context")
-            
-            # Extract previous 7 manipulations
-            if episode_name in memory_data and "prev_responses" in memory_data[episode_name]:
-                previous_manipulations = "\n".join(memory_data[episode_name]["prev_responses"])
-                print(f"[DEBUG] Successfully loaded {len(memory_data[episode_name]['prev_responses'])} previous manipulations")
+        current_episode = memory_data[episode_name]
+        cross_examination_context = current_episode["Case_Transcript"]
+        prev_responses = current_episode.get("prev_responses", [])
+        collected_evidences = current_episode.get("evidences", [])
     else:
-        print(f"[DEBUG] Current episode memory file not found at: {json_file}")
-    
+        cross_examination_context = []
+        prev_responses = []
+        collected_evidences = []
+
     # Compose complete memory context
-    complete_memory = (
-        f"Background Conversation Context:\n{background_context}\n\n"
-        f"Cross-Examination Conversation Context:\n{cross_examination_context}\n\n"
-        f"Previous 7 manipulations:\n{previous_manipulations}"
-    )
-    
-    return complete_memory
+    memory_context = f"""Background Conversation Context:
+{chr(10).join(background_context)}
+
+Cross-Examination Conversation Context:
+{chr(10).join(cross_examination_context)}
+
+Previous 7 manipulations:
+{chr(10).join(prev_responses)}
+
+Collected Evidences:
+{chr(10).join(collected_evidences)}"""
+
+    return memory_context
 
 def ace_attorney_worker(system_prompt, api_provider, model_name, 
     prev_response="", 
@@ -327,7 +315,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     response_text = vision_result["response"]
     
     # Extract Game State
-    game_state_match = re.search(r"Game State:\s*(Cross-Examination|Conversation)", response_text)
+    game_state_match = re.search(r"Game State:\s*(Cross-Examination|Conversation|Evidence)", response_text)
     game_state = game_state_match.group(1) if game_state_match else "Unknown"
     
     # Extract Dialog (with NAME: text format)
@@ -337,24 +325,47 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         "text": dialog_match.group(2).strip() if dialog_match else ""
     }
     
+    # Extract Evidence
+    evidence_match = re.search(r"Evidence:\s*([^:\n]+):\s*(.+?)(?=\n|$)", response_text)
+    evidence = {
+        "name": evidence_match.group(1) if evidence_match else "",
+        "description": evidence_match.group(2).strip() if evidence_match else ""
+    }
+    
     # Extract Scene Description
     scene_match = re.search(r"Scene:\s*(.+?)(?=\n|$)", response_text, re.DOTALL)
     scene = scene_match.group(1).strip() if scene_match else ""
 
     # -------------------- Memory Processing -------------------- #
     # First, update long-term and short-term memory
-    if dialog["name"] and dialog["text"]:
-        dialog_file = long_term_memory_worker(
-            system_prompt,
-            api_provider,
-            model_name,
-            prev_response,
-            thinking,
-            modality,
-            episode_name,
-            dialog
-        )
-        print(f"[Dialog saved to {dialog_file}]")
+    if game_state == "Evidence":
+        # If in Evidence mode, update evidence instead of dialog
+        if evidence["name"] and evidence["description"]:
+            evidence_file = long_term_memory_worker(
+                system_prompt,
+                api_provider,
+                model_name,
+                prev_response,
+                thinking,
+                modality,
+                episode_name,
+                evidence=evidence
+            )
+            print(f"[Evidence saved to {evidence_file}]")
+    else:
+        # If in Conversation or Cross-Examination mode, update dialog
+        if dialog["name"] and dialog["text"]:
+            dialog_file = long_term_memory_worker(
+                system_prompt,
+                api_provider,
+                model_name,
+                prev_response,
+                thinking,
+                modality,
+                episode_name,
+                dialog=dialog
+            )
+            print(f"[Dialog saved to {dialog_file}]")
 
     if prev_response:
         short_term_memory_worker(
@@ -383,6 +394,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     parsed_result = {
         "game_state": game_state,
         "dialog": dialog,
+        "evidence": evidence,
         "scene": scene,
         "screenshot_path": vision_result["screenshot_path"],
         "memory_context": complete_memory
