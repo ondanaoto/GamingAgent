@@ -61,7 +61,7 @@ def main():
 
     prev_response = ""
 
-        # Delete existing cache directory if it exists and create a new one
+    # Delete existing cache directory if it exists and create a new one
     # if os.path.exists(CACHE_DIR):
     #     shutil.rmtree(CACHE_DIR)
     # os.makedirs(CACHE_DIR, exist_ok=True)
