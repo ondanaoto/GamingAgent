@@ -362,9 +362,9 @@ def reasoning_worker(system_prompt, api_provider, model_name, game_state, scene,
     # Format evidence details for the prompt
     evidence_details = "\n".join([f"Evidence {i+1}: {e}" for i, e in enumerate(collected_evidences)])
     
-    print(f"----------------------------------")
-    print(f"Current Game State: {game_state}")
-    print(f"----------------------------------")
+    # print(f"----------------------------------")
+    # print(f"Current Game State: {game_state}")
+    # print(f"----------------------------------")
 
     # Construct the prompt for the API
     prompt = f"""You are Phoenix Wright, a defense attorney in Ace Attorney. Your goal is to prove your client's innocence by finding contradictions in witness testimonies and presenting the right evidence at the right time.
@@ -506,8 +506,8 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
             modality,
             thinking
         )
-        print("[Vision Analysis Result]")
-        print(vision_result)
+        # print("[Vision Analysis Result]")
+        # print(vision_result)
 
         if "error" in vision_result:
             return vision_result
@@ -581,8 +581,8 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         thinking,
         modality
     )
-    print("[Vision Analysis Result]")
-    print(vision_result)
+    # print("[Vision Analysis Result]")
+    # print(vision_result)
 
     if "error" in vision_result:
         return vision_result
@@ -678,8 +678,8 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         modality='text-only',
         thinking=thinking
     )
-    print("[Reasoning Result]")
-    print(reasoning_result)
+    # print("[Reasoning Result]")
+    # print(reasoning_result)
 
     parsed_result = {
         "game_state": game_state,

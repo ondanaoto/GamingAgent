@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import concurrent.futures
 import argparse
 from collections import deque, Counter
 import shutil
@@ -14,6 +15,31 @@ from tools.utils import str2bool
 from collections import Counter
 
 CACHE_DIR = "cache/ace_attorney"
+
+def majority_vote_move(moves_list, prev_move=None):
+    """
+    Returns the majority-voted move from moves_list.
+    If there's a tie for the top count, and if prev_move is among those tied moves,
+    prev_move is chosen. Otherwise, pick the first move from the tie.
+    """
+    if not moves_list:
+        return None
+
+    c = Counter(moves_list)
+    
+    # c.most_common() -> list of (move, count) sorted by count descending, then by move
+    counts = c.most_common()
+    top_count = counts[0][1]  # highest vote count
+
+    tie_moves = [m for m, cnt in counts if cnt == top_count]
+
+    if len(tie_moves) > 1 and prev_move:
+        if prev_move in tie_moves:
+            return prev_move
+        else:
+            return tie_moves[0]
+    else:
+        return tie_moves[0]
 
 # System prompt remains constant
 system_prompt = (
@@ -34,57 +60,92 @@ def main():
     parser.add_argument("--thinking", type=str, default="False", help="Whether to use deep thinking.")
     parser.add_argument("--episode_name", type=str, default="The First Turnabout", 
                         help="Name of the current episode being played.")
+    parser.add_argument("--num_threads", type=int, default=5, help="Number of parallel threads to launch.")
     args = parser.parse_args()
 
     prev_response = ""
 
     try:
-        start_time = time.time()
-
-        thinking_bool = str2bool(args.thinking)
-
-        # evidence_result = ace_evidence_worker(
-        #     system_prompt,
-        #     args.api_provider,
-        #     args.model_name,
-        #     prev_response,
-        #     thinking=thinking_bool,
-        #     modality=args.modality,
-        #     episode_name=args.episode_name,
-        # )
-
         while True:
-            # Direct call to ace_attorney_worker
-            result = ace_attorney_worker(
-                system_prompt,
-                args.api_provider,
-                args.model_name,
-                prev_response,
-                thinking=thinking_bool,
-                modality=args.modality,
-                episode_name=args.episode_name,
-            )
+            start_time = time.time()
 
-            # Process the result
-            if result:
-                # Extract game state, move and thought from the result
-                game_state = result["game_state"]
-                move = result["move"].strip().lower()
-                thought = result["thought"]
-                    
-                # Print current game state
-                print(f"Current Game State: {game_state}")
+            thinking_bool = str2bool(args.thinking)
+
+            # Self-consistency launch with 1-second interval between threads
+            with concurrent.futures.ThreadPoolExecutor(max_workers=args.num_threads) as executor:
+                futures = []
+                for i in range(args.num_threads):
+                    futures.append(
+                        executor.submit(
+                            ace_attorney_worker,
+                            system_prompt,
+                            args.api_provider,
+                            args.model_name,
+                            prev_response,
+                            thinking=thinking_bool,
+                            modality=args.modality,
+                            episode_name=args.episode_name,
+                        )
+                    )
+                    if i < args.num_threads - 1:  # Don't sleep after the last thread
+                        time.sleep(1)  # Add 1-second interval between launching threads
                 
-                # Perform the move using the imported function
-                perform_move(move)
-                
-                # Update previous response with game state, move and thought
-                prev_response = f"game_state: {game_state}\nmove: {move}\nthought: {thought}"
+                # Wait until all threads finish
+                concurrent.futures.wait(futures)
+                results = [f.result() for f in futures]
+            
+            print("\n=== Thread Results Summary ===")
+            for i, result in enumerate(results, 1):
+                if result and "move" in result and "thought" in result and "game_state" in result:
+                    print(f"Thread {i}:")
+                    print(f"  Move: {result['move'].strip().lower()}")
+                    print(f"  Thought: {result['thought']}")
+                    print(f"  Game State: {result['game_state']}")
+                else:
+                    print(f"Thread {i}: Invalid result")
+            print("===========================\n")
+
+            # Collect all moves and thoughts from the results
+            moves = []
+            thoughts = []
+            game_states = []
+            
+            for result in results:
+                if result and "move" in result and "thought" in result and "game_state" in result:
+                    moves.append(result["move"].strip().lower())
+                    thoughts.append(result["thought"])
+                    game_states.append(result["game_state"])
+
+            if not moves:
+                print("[WARNING] No valid moves found in results")
+                continue
+
+            # Print vote counts
+            move_counts = Counter(moves)
+            print("\n=== Move Votes ===")
+            for move, count in move_counts.most_common():
+                print(f"{move}: {count} votes")
+            print("================\n")
+
+            # Perform majority vote on moves
+            chosen_move = majority_vote_move(moves)
+            
+            # Find the thought associated with the chosen move
+            chosen_thought = thoughts[moves.index(chosen_move)]
+            chosen_game_state = game_states[moves.index(chosen_move)]
+
+            # Print current game state
+            print(f"Current Game State: {chosen_game_state}")
+            
+            # Perform the chosen move
+            perform_move(chosen_move)
+            
+            # Update previous response with game state, move and thought
+            prev_response = f"game_state: {chosen_game_state}\nmove: {chosen_move}\nthought: {chosen_thought}"
 
             print("[debug] previous response:")
             print(prev_response)
             elapsed_time = time.time() - start_time
-
             time.sleep(3)
             print(f"[INFO] Move executed in {elapsed_time:.2f} seconds.")
     except KeyboardInterrupt:
