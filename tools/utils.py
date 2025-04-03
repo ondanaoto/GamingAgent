@@ -537,7 +537,6 @@ def capture_game_window(image_name, window_name, cache_dir):
             import win32gui
             import win32ui
             from ctypes import windll
-            from PIL import Image
             
             # Find the window using flexible matching
             hwnd = find_game_window()
@@ -584,7 +583,25 @@ def capture_game_window(image_name, window_name, cache_dir):
             screenshot = pyautogui.screenshot()
     else:
         # For Mac and other platforms, use pyautogui
-        screenshot = pyautogui.screenshot()
+        screen_width, screen_height = pyautogui.size()
+        region = (0, 0, screen_width, screen_height)
+        screenshot = pyautogui.screenshot(region=region)
+        
+        os.makedirs(cache_dir, exist_ok=True)
+        screenshot_path = os.path.join(cache_dir, "screenshot.png")
+        screenshot.save(screenshot_path)
+
+        annotate_image_path, grid_annotation_path, annotate_cropped_image_path= get_annotate_img(
+            screenshot_path,
+            crop_left=0,
+            crop_right=710,
+            crop_top=250,
+            crop_bottom=250,
+            grid_rows=1,
+            grid_cols=1,
+            cache_dir=cache_dir
+        )
+        screenshot = Image.open(annotate_image_path)
     
     if screenshot:
         # Get current dimensions

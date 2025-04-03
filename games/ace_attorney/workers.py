@@ -17,7 +17,7 @@ def perform_move(move):
         "present": "x",
         "court_record": "r",
         "profiles": "r",
-        "cancel": "backspace",
+        "cancel": "b",
         "press": "l",
         "options": "1",
         "return_title": "j",
@@ -36,8 +36,10 @@ def perform_move(move):
     }
     
     if move.lower() in key_map:
-        pyautogui.press(key_map[move.lower()])
-        print(f"Performed move: {move}")
+        pyautogui.keyDown(key_map[move.lower()])
+        time.sleep(0.1)
+        pyautogui.keyUp(key_map[move.lower()])
+        print(f"Performed move: {move} (key: {key_map[move.lower()]})")
     else:
         print(f"[WARNING] Invalid move: {move}")
 
@@ -54,6 +56,55 @@ def log_move_and_thought(move, thought, latency):
             log_file.write(log_entry)
     except Exception as e:
         print(f"[ERROR] Failed to write log entry: {e}")
+
+def vision_evidence_worker(system_prompt, api_provider, model_name, modality, thinking):
+    # Capture game window screenshot
+    screenshot_path = capture_game_window(
+        image_name="ace_attorney_screenshot_evidence.png",
+        window_name="Phoenix Wright: Ace Attorney Trilogy",
+        cache_dir=CACHE_DIR
+    )
+    if not screenshot_path:
+        return {"error": "Failed to capture game window"}
+
+    base64_image = encode_image(screenshot_path)
+    
+    # Construct prompt for LLM
+    prompt = (
+        "You are now playing Ace Attorney. Analyze the current scene and provide the following information:\n\n"
+        "Look at the evidence presentation window\n"
+        "For the item, provide its name and description\n"
+
+        "Format your response EXACTLY as:\n"
+        "Game State: <'Evidence'>\n"
+        "Dialog: None\n"
+        "Evidence: NAME: description\n"
+        "Scene: <detailed description includes other visual elements>"
+    )
+
+    print(f"Calling {model_name} API for vision analysis...")
+    
+    if api_provider == "anthropic" and modality=="text-only":
+        response = anthropic_text_completion(system_prompt, model_name, prompt, thinking)
+    elif api_provider == "anthropic":
+        response = anthropic_completion(system_prompt, model_name, base64_image, prompt, thinking)
+    elif api_provider == "openai" and "o3" in model_name and modality=="text-only":
+        response = openai_text_reasoning_completion(system_prompt, model_name, prompt)
+    elif api_provider == "openai":
+        response = openai_completion(system_prompt, model_name, base64_image, prompt)
+    elif api_provider == "gemini" and modality=="text-only":
+        response = gemini_text_completion(system_prompt, model_name, prompt)
+    elif api_provider == "gemini":
+        response = gemini_completion(system_prompt, model_name, base64_image, prompt)
+    elif api_provider == "deepseek":
+        response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
+    else:
+        raise NotImplementedError(f"API provider: {api_provider} is not supported.")
+    
+    return {
+        "response": response,
+        "screenshot_path": screenshot_path
+    }
 
 def vision_worker(system_prompt, api_provider, model_name, 
     prev_response="", 
@@ -239,12 +290,11 @@ def memory_retrieval_worker(system_prompt, api_provider, model_name,
     """
     Retrieves and composes complete memory context from long-term and short-term memory.
     """
-    # Load background conversation context and evidence from ace_attorney_1.json
+    # Load background conversation context
     background_file = "games/ace_attorney/ace_attorney_1.json"
     with open(background_file, 'r') as f:
         background_data = json.load(f)
     background_context = background_data[episode_name]["Case_Transcript"]
-    available_evidences = background_data[episode_name]["evidences"]
 
     # Load current episode memory
     memory_file = os.path.join("cache", "ace_attorney", "dialog_history", f"{episode_name.lower().replace(' ', '_')}.json")
@@ -254,9 +304,11 @@ def memory_retrieval_worker(system_prompt, api_provider, model_name,
         current_episode = memory_data[episode_name]
         cross_examination_context = current_episode["Case_Transcript"]
         prev_responses = current_episode.get("prev_responses", [])
+        collected_evidences = current_episode.get("evidences", [])
     else:
         cross_examination_context = []
         prev_responses = []
+        collected_evidences = []
 
     # Compose complete memory context
     memory_context = f"""Background Conversation Context:
@@ -268,9 +320,8 @@ Cross-Examination Conversation Context:
 Previous 7 manipulations:
 {chr(10).join(prev_responses)}
 
-Available Evidence:
-(You can find these evidences in the evidence window. If there is a clear contradiction, please feel free to use court_record to open the evidence window and present the evidence in the cross-examination mode.) 
-{chr(10).join(available_evidences)}"""
+Collected Evidences:
+{chr(10).join(collected_evidences)}"""
 
     return memory_context
 
@@ -294,11 +345,12 @@ def reasoning_worker(system_prompt, api_provider, model_name, game_state, scene,
         dict: Contains move and thought
     """
     # Extract and format evidence information
-    evidences_section = memory_context.split("Available Evidence:")[1].strip()
-    available_evidences = [e for e in evidences_section.split("\n") if e.strip()]
+    evidences_section = memory_context.split("Collected Evidences:")[1].strip()
+    collected_evidences = [e for e in evidences_section.split("\n") if e.strip()]
+    num_collected_evidences = len(collected_evidences)
     
     # Format evidence details for the prompt
-    evidence_details = "\n".join([f"Evidence {i+1}: {e}" for i, e in enumerate(available_evidences)])
+    evidence_details = "\n".join([f"Evidence {i+1}: {e}" for i, e in enumerate(collected_evidences)])
     
     print(f"----------------------------------")
     print(f"Current Game State: {game_state}")
@@ -312,7 +364,8 @@ This is your current state. All decisions must be based on this state only.
 
 Scene Description: {scene}
 
-Available Evidence:
+Evidence Status:
+- Total Evidence Collected: {num_collected_evidences}
 {evidence_details}
 
 Memory Context:
@@ -391,12 +444,85 @@ Choose the most appropriate move and explain your reasoning. Focus on finding co
         "move": move,
         "thought": thought
     }
+def ace_evidence_worker(system_prompt, api_provider, model_name, 
+    prev_response="", 
+    thinking=True, 
+    modality="vision-text",
+    episode_name="The First Turnabout",
+    ):
+    """
+    1) Loops through evidence items until all are seen or a duplicate appears.
+    2) Updates memory with newly seen evidence.
+    3) Returns after exiting Evidence view.
+    """
+    assert modality in ["text-only", "vision-text"], f"modality {modality} is not supported."
 
+    seen_names = set()
+    duplicate_found = False
+
+    # Start in evidence mode
+    perform_move("court_record")
+    time.sleep(1)
+
+    while not duplicate_found:
+        # Analyze the current evidence screen
+        vision_result = vision_evidence_worker(
+            system_prompt,
+            api_provider,
+            model_name,
+            modality,
+            thinking
+        )
+        print("[Vision Analysis Result]")
+        print(vision_result)
+
+        if "error" in vision_result:
+            return vision_result
+
+        response_text = vision_result["response"]
+
+        # Extract evidence info
+        evidence_match = re.search(r"Evidence:\s*([^:\n]+):\s*(.+?)(?=\n|$)", response_text)
+        evidence = {
+            "name": evidence_match.group(1) if evidence_match else "",
+            "description": evidence_match.group(2).strip() if evidence_match else ""
+        }
+
+        # Update memory if new
+        if evidence["name"] and evidence["description"]:
+            if evidence["name"] in seen_names:
+                duplicate_found = True
+                perform_move("cancel")
+                time.sleep(1)
+                print(f"[INFO] Duplicate evidence '{evidence['name']}' detected. Exiting evidence view.")
+                break
+            else:
+                seen_names.add(evidence["name"])
+                long_term_memory_worker(
+                    system_prompt,
+                    api_provider,
+                    model_name,
+                    prev_response,
+                    thinking,
+                    modality,
+                    episode_name,
+                    evidence=evidence
+                )
+                perform_move("right")
+                print(f"[INFO] New evidence collected: {evidence['name']}")
+                time.sleep(1)
+
+    # No need to run reasoning or return reasoning_result
+    return {
+        "game_state": "Evidence",
+        "evidence": evidence,
+        "seen": list(seen_names)
+    }
 def ace_attorney_worker(system_prompt, api_provider, model_name, 
     prev_response="", 
     thinking=True, 
     modality="vision-text",
-    episode_name="The First Turnabout"
+    episode_name="The First Turnabout",
     ):
     """
     1) Captures a screenshot of the current game state.
@@ -432,7 +558,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     response_text = vision_result["response"]
     
     # Extract Game State
-    game_state_match = re.search(r"Game State:\s*(Cross-Examination|Conversation)", response_text)
+    game_state_match = re.search(r"Game State:\s*(Cross-Examination|Conversation|Evidence)", response_text)
     game_state = game_state_match.group(1) if game_state_match else "Unknown"
     
     # Extract Dialog (with NAME: text format)
@@ -440,6 +566,13 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     dialog = {
         "name": dialog_match.group(1) if dialog_match else "",
         "text": dialog_match.group(2).strip() if dialog_match else ""
+    }
+    
+    # Extract Evidence
+    evidence_match = re.search(r"Evidence:\s*([^:\n]+):\s*(.+?)(?=\n|$)", response_text)
+    evidence = {
+        "name": evidence_match.group(1) if evidence_match else "",
+        "description": evidence_match.group(2).strip() if evidence_match else ""
     }
     
     # Extract Scene Description
@@ -450,8 +583,8 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     # First, update long-term and short-term memory
     if game_state == "Evidence":
         # If in Evidence mode, update evidence instead of dialog
-        if dialog["name"] and dialog["text"]:
-            dialog_file = long_term_memory_worker(
+        if evidence["name"] and evidence["description"]:
+            evidence_file = long_term_memory_worker(
                 system_prompt,
                 api_provider,
                 model_name,
@@ -459,10 +592,10 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
                 thinking,
                 modality,
                 episode_name,
-                dialog=dialog
+                evidence=evidence
             )
     else:
-        # If in Conversation mode, update dialog
+        # If in Conversation or Cross-Examination mode, update dialog
         if dialog["name"] and dialog["text"]:
             dialog_file = long_term_memory_worker(
                 system_prompt,
@@ -509,7 +642,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         scene,
         complete_memory,
         base64_image=encode_image(vision_result["screenshot_path"]),
-        modality=modality,
+        modality='text-only',
         thinking=thinking
     )
     print("[Reasoning Result]")
@@ -518,6 +651,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     parsed_result = {
         "game_state": game_state,
         "dialog": dialog,
+        "evidence": evidence,
         "scene": scene,
         "screenshot_path": vision_result["screenshot_path"],
         "memory_context": complete_memory,

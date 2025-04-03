@@ -9,7 +9,7 @@ import json
 import re
 import pyautogui
 
-from games.ace_attorney.workers import ace_attorney_worker, perform_move
+from games.ace_attorney.workers import ace_attorney_worker, perform_move, ace_evidence_worker
 from tools.utils import str2bool
 from collections import Counter
 
@@ -31,7 +31,7 @@ def main():
     parser.add_argument("--model_name", type=str, default="claude-3-7-sonnet-20250219", help="LLM model name.")
     parser.add_argument("--modality", type=str, default="vision-text", choices=["text-only", "vision-text"],
                         help="modality used.")
-    parser.add_argument("--thinking", type=str, default="True", help="Whether to use deep thinking.")
+    parser.add_argument("--thinking", type=str, default="False", help="Whether to use deep thinking.")
     parser.add_argument("--episode_name", type=str, default="The First Turnabout", 
                         help="Name of the current episode being played.")
     args = parser.parse_args()
@@ -39,12 +39,22 @@ def main():
     prev_response = ""
 
     try:
+        start_time = time.time()
+
+        thinking_bool = str2bool(args.thinking)
+
+        evidence_result = ace_evidence_worker(
+            system_prompt,
+            args.api_provider,
+            args.model_name,
+            prev_response,
+            thinking=thinking_bool,
+            modality=args.modality,
+            episode_name=args.episode_name,
+        )
+        evidence = True 
+
         while True:
-            start_time = time.time()
-
-            # Convert thinking string to boolean
-            thinking_bool = str2bool(args.thinking)
-
             # Direct call to ace_attorney_worker
             result = ace_attorney_worker(
                 system_prompt,
@@ -53,9 +63,8 @@ def main():
                 prev_response,
                 thinking=thinking_bool,
                 modality=args.modality,
-                episode_name=args.episode_name
+                episode_name=args.episode_name,
             )
-            
 
             # Process the result
             if result:
@@ -76,6 +85,7 @@ def main():
             print("[debug] previous response:")
             print(prev_response)
             elapsed_time = time.time() - start_time
+
             time.sleep(3)
             print(f"[INFO] Move executed in {elapsed_time:.2f} seconds.")
     except KeyboardInterrupt:
