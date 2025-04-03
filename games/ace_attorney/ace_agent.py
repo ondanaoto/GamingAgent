@@ -10,7 +10,7 @@ import json
 import re
 import pyautogui
 
-from games.ace_attorney.workers import ace_attorney_worker, perform_move, ace_evidence_worker
+from games.ace_attorney.workers import ace_attorney_worker, perform_move, ace_evidence_worker, short_term_memory_worker
 from tools.utils import str2bool
 from collections import Counter
 
@@ -47,7 +47,6 @@ system_prompt = (
 )
 
 def main():
-
     parser = argparse.ArgumentParser(description="Ace Attorney AI Agent")
     parser.add_argument("--api_provider", type=str, default="anthropic", help="API provider to use.")
     parser.add_argument("--model_name", type=str, default="claude-3-7-sonnet-20250219", help="LLM model name.")
@@ -153,6 +152,17 @@ def main():
             
             # Update previous response with game state, move and thought
             prev_response = f"game_state: {chosen_game_state}\nmove: {chosen_move}\nthought: {chosen_thought}"
+
+            # Update short-term memory with the chosen response
+            short_term_memory_worker(
+                system_prompt,
+                args.api_provider,
+                args.model_name,
+                prev_response,
+                thinking=thinking_bool,
+                modality=args.modality,
+                episode_name=args.episode_name
+            )
 
             print("[debug] previous response:")
             print(prev_response)

@@ -11,37 +11,20 @@ import json
 CACHE_DIR = "cache/ace_attorney"
 
 def perform_move(move):
-    key_map = {
-        # Core actions
-        "confirm": "z",
-        "present": "x",
-        "court_record": "r",
-        "profiles": "r",
-        "cancel": "b",
-        "press": "l",
-        "options": "1",
-        "return_title": "j",
-        
-        # Movement controls
-        "up": "up",
-        "down": "down",
-        "right": "right",
-        "left": "left",
-        
-        # Evidence controls
-        "rotate_up": "h",
-        "rotate_down": "n",
-        "rotate_right": "m",
-        "rotate_left": "b"
-    }
-    
-    if move.lower() in key_map:
-        pyautogui.keyDown(key_map[move.lower()])
+    """
+    Directly performs the move using keyboard input without key mapping.
+    """
+    if move.lower() in ["up", "down", "left", "right"]:
+        # For arrow keys, use the direct key name
+        pyautogui.keyDown(move.lower())
         time.sleep(0.1)
-        pyautogui.keyUp(key_map[move.lower()])
-        print(f"Performed move: {move} (key: {key_map[move.lower()]})")
+        pyautogui.keyUp(move.lower())
     else:
-        print(f"[WARNING] Invalid move: {move}")
+        # For other keys, use the direct key press
+        pyautogui.press(move.lower())
+        time.sleep(0.1)
+    
+    print(f"Performed move: {move}")
 
 def log_move_and_thought(move, thought, latency):
     """
@@ -134,7 +117,7 @@ def vision_worker(system_prompt, api_provider, model_name,
         "   - Cross-Examination mode is indicated by ANY of these:\n"
         "     * A blue bar in the upper right corner\n"
         "     * Green dialog text\n"
-        "     * Options, press, present UI elements at right down corner\n"
+        "     * Options(correspnding keyboard), press(correspnding keyboard), present UI(corresponding keyboard) elements at right down corner\n"
         "     * An evidence window visible in the middle of the screen\n"
         "   - If you see an evidence window, it is ALWAYS Cross-Examination mode\n"
         "   - If you don't see any Cross-Examination indicators, it's Conversation mode\n\n"
@@ -149,22 +132,19 @@ def vision_worker(system_prompt, api_provider, model_name,
         "   - You MUST explicitly mention:\n"
         "     * The color of the dialog text (green/white)\n"
         "     * Whether there is a blue bar in the upper right corner\n"
-        "     * The presence of options, press, present UI elements\n"
-        "     * Whether there is an evidence window visible\n\n"
+        "     * The presence of Options(correspnding keyboard), press(correspnding keyboard), present UI(corresponding keyboard) UI elements\n"
+        "     * Whether there is an evidence window visible\n"
+        "     * If evidence window is visible:\n"
+        "       - Name of the currently selected evidence\n"
+        "       - Description of the evidence\n"
+        "       - Position in the evidence list (if visible)\n"
+        "       - Whether this is the evidence you intend to present\n\n"
 
         "Format your response EXACTLY as:\n"
         "Game State: <'Cross-Examination' or 'Conversation'>\n"
         "Dialog: NAME: dialog text\n"
-        "Scene: <detailed description including dialog color, blue bar presence, and other visual elements>"
-
-        """
-        If the evidence window is open, look carefully at the evidence that is currently selected in the middle.
-
-        You MUST include:
-        - The NAME and description of the **currently selected** evidence
-        - What evidence items are visible in the bar at the bottom (optional)
-        - Whether the currently selected evidence matches the one you intend to present
-        """
+        "Evidence: NAME: description\n"
+        "Scene: <detailed description including dialog color, blue bar presence, evidence window status and contents, and other visual elements>"
     )
 
     print(f"Calling {model_name} API for vision analysis...")
@@ -362,10 +342,6 @@ def reasoning_worker(system_prompt, api_provider, model_name, game_state, scene,
     # Format evidence details for the prompt
     evidence_details = "\n".join([f"Evidence {i+1}: {e}" for i, e in enumerate(collected_evidences)])
     
-    # print(f"----------------------------------")
-    # print(f"Current Game State: {game_state}")
-    # print(f"----------------------------------")
-
     # Construct the prompt for the API
     prompt = f"""You are Phoenix Wright, a defense attorney in Ace Attorney. Your goal is to prove your client's innocence by finding contradictions in witness testimonies and presenting the right evidence at the right time.
 
@@ -388,7 +364,7 @@ thought: <explanation>
 Game State Strategies:
 
 1. Conversation Mode (CURRENT STATE: {game_state}):
-   - Use confirm to continue the conversation
+   - Use 'z' to continue the conversation
    - DO NOT use any other commands in Conversation mode
    - No press command in Conversation mode
 
@@ -396,56 +372,55 @@ Game State Strategies:
    - ALWAYS compare the witness's statement with the available evidence
    - For each statement, you have two options:
      * If you find a clear contradiction with evidence: (Three steps, you can only do one step at a time. Be coherent with previous response.)
-       - First step: Use court_record to open the evidence window
-       - Second step: Navigate through evidence using right/left
+       - First step: Use 'r' to open the evidence window
+       - Second step: Navigate through evidence using 'right'/'left'
          * Look at each evidence carefully
          * Only stop when you find the evidence that directly contradicts the statement
          * If the current evidence doesn't match, keep navigating
          * Be absolutely sure the evidence contradicts the statement before presenting
-       - Third step: Use present to show the contradicting evidence
+       - Third step: Use 'x' to show the contradicting evidence
          * Only present when you're certain this is the right evidence
          * The evidence must directly contradict the witness's statement
        - No need to ask more questions if you're confident about the contradiction
      * If you don't find a contradiction or need more information:
-       - Use press to question the witness about their statement
-       - Or use confirm to move to their next statement if you don't need to ask more
+       - Use 'l' to question the witness about their statement
+       - Or use 'z' to move to their next statement if you don't need to ask more
    - The evidence window will automatically close after showing evidence
-   - DO NOT use present/court_record unless you have found a clear contradiction
-   - DO NOT use present/court_record if you don't see an evidence window
+   - DO NOT use 'x'/'r' unless you have found a clear contradiction
+   - DO NOT use 'x'/'r' if you don't see an evidence window
 
 Available moves:
 - In Conversation:
-  * confirm: Continue the conversation
+  * 'z': Continue the conversation
 - In Cross-Examination:
-  * press: Question the witness about their current statement
-  * confirm: Move to the next statement if you don't need to ask more
-  * court_record: Open the evidence window to show contradicting evidence
-  * present: Show the selected evidence (only when you're certain it contradicts)
-  * left/right: Navigate through evidence items to find the correct one
+  * 'l': Question the witness about their current statement
+  * 'z': Move to the next statement if you don't need to ask more
+  * 'r': Open the evidence window to show contradicting evidence
+  * 'x': Show the selected evidence (only when you're certain it contradicts)
+  * 'right'/'left': Navigate through evidence items to find the correct one
 
-Before using `present`, always ask:
+Before using 'x', always ask:
 - Is the currently selected evidence the one I want to present?
 
 If the currently selected evidence is NOT the one I intend to present:
-- Use `right` or `left` to navigate until the correct one is selected
+- Use 'right' or 'left' to navigate until the correct one is selected
 - Do NOT assume the correct evidence is selected
-- NEVER use `present` until the correct item is confirmed to be selected
+- NEVER use 'x' until the correct item is confirmed to be selected
 
 Example:
 
-Scene says: “The currently selected evidence is 'Attorney's Badge'.”
+Scene says: "The currently selected evidence is 'Attorney's Badge'."
 
-But I want to present: “Cindy's Autopsy Report”
+But I want to present: "Cindy's Autopsy Report"
 
 So I do:
 Turn 1:
 move: right
-thought: The Autopsy Report is not currently selected. I’ll navigate to it.
+thought: The Autopsy Report is not currently selected. I'll navigate to it.
 
 Turn 2:
-move: present
-thought: The Autopsy Report is now selected. I’ll present it to contradict the witness.
-
+move: x
+thought: The Autopsy Report is now selected. I'll present it to contradict the witness.
 """
 
     # Call the API
@@ -477,6 +452,7 @@ thought: The Autopsy Report is now selected. I’ll present it to contradict the
         "move": move,
         "thought": thought
     }
+
 def ace_evidence_worker(system_prompt, api_provider, model_name, 
     prev_response="", 
     thinking=True, 
@@ -551,6 +527,7 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
         "evidence": evidence,
         "seen": list(seen_names)
     }
+
 def ace_attorney_worker(system_prompt, api_provider, model_name, 
     prev_response="", 
     thinking=True, 
@@ -562,9 +539,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     2) Analyzes the scene using vision worker.
     3) Makes decisions based on the scene analysis.
     4) Maintains dialog history for the current episode.
-    5) Maintains short-term memory of previous responses.
-    6) Retrieves and composes complete memory context.
-    7) Makes decisions about game moves.
+    5) Makes decisions about game moves.
     
     Args:
         episode_name (str): Name of the current episode (default: "The First Turnabout")
@@ -581,8 +556,6 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         thinking,
         modality
     )
-    # print("[Vision Analysis Result]")
-    # print(vision_result)
 
     if "error" in vision_result:
         return vision_result
@@ -613,7 +586,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     scene = scene_match.group(1).strip() if scene_match else ""
 
     # -------------------- Memory Processing -------------------- #
-    # First, update long-term and short-term memory
+    # Update long-term memory only
     if game_state == "Evidence":
         # If in Evidence mode, update evidence instead of dialog
         if evidence["name"] and evidence["description"]:
@@ -641,17 +614,6 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
                 dialog=dialog
             )
 
-    if prev_response:
-        short_term_memory_worker(
-            system_prompt,
-            api_provider,
-            model_name,
-            prev_response,
-            thinking,
-            modality,
-            episode_name
-        )
-
     # Then, retrieve and compose complete memory context
     complete_memory = memory_retrieval_worker(
         system_prompt,
@@ -662,8 +624,6 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         modality,
         episode_name
     )
-    # print("[Memory Context]")
-    # print(complete_memory)
 
     # -------------------- Reasoning -------------------- #
     # Make decisions about game moves
@@ -678,8 +638,6 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         modality='text-only',
         thinking=thinking
     )
-    # print("[Reasoning Result]")
-    # print(reasoning_result)
 
     parsed_result = {
         "game_state": game_state,
