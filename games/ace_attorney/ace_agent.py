@@ -47,10 +47,6 @@ system_prompt = (
 )
 
 def main():
-    # Delete existing cache directory if it exists and create a new one
-    # if os.path.exists(CACHE_DIR):
-    #     shutil.rmtree(CACHE_DIR)
-    # os.makedirs(CACHE_DIR, exist_ok=True)
 
     parser = argparse.ArgumentParser(description="Ace Attorney AI Agent")
     parser.add_argument("--api_provider", type=str, default="anthropic", help="API provider to use.")
@@ -64,6 +60,21 @@ def main():
     args = parser.parse_args()
 
     prev_response = ""
+
+        # Delete existing cache directory if it exists and create a new one
+    # if os.path.exists(CACHE_DIR):
+    #     shutil.rmtree(CACHE_DIR)
+    # os.makedirs(CACHE_DIR, exist_ok=True)
+
+    # evidence_result = ace_evidence_worker(
+    #     system_prompt,
+    #     args.api_provider,
+    #     args.model_name,
+    #     prev_response,
+    #     thinking=thinking_bool,
+    #     modality=args.modality,
+    #     episode_name = args.episode_name
+    # )
 
     try:
         while True:
