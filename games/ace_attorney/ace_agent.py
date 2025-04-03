@@ -52,7 +52,6 @@ def main():
         #     modality=args.modality,
         #     episode_name=args.episode_name,
         # )
-        evidence = True 
 
         while True:
             # Direct call to ace_attorney_worker

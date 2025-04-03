@@ -151,10 +151,20 @@ def vision_worker(system_prompt, api_provider, model_name,
         "     * Whether there is a blue bar in the upper right corner\n"
         "     * The presence of options, press, present UI elements\n"
         "     * Whether there is an evidence window visible\n\n"
+
         "Format your response EXACTLY as:\n"
         "Game State: <'Cross-Examination' or 'Conversation'>\n"
         "Dialog: NAME: dialog text\n"
         "Scene: <detailed description including dialog color, blue bar presence, and other visual elements>"
+
+        """
+        If the evidence window is open, look carefully at the evidence that is currently selected in the middle.
+
+        You MUST include:
+        - The NAME and description of the **currently selected** evidence
+        - What evidence items are visible in the bar at the bottom (optional)
+        - Whether the currently selected evidence matches the one you intend to present
+        """
     )
 
     print(f"Calling {model_name} API for vision analysis...")
@@ -413,7 +423,30 @@ Available moves:
   * present: Show the selected evidence (only when you're certain it contradicts)
   * left/right: Navigate through evidence items to find the correct one
 
-Choose the most appropriate move and explain your reasoning. Focus on finding contradictions in cross-examination and presenting the right evidence at the right time. Remember to only use commands that are valid for your current game state."""
+Before using `present`, always ask:
+- Is the currently selected evidence the one I want to present?
+
+If the currently selected evidence is NOT the one I intend to present:
+- Use `right` or `left` to navigate until the correct one is selected
+- Do NOT assume the correct evidence is selected
+- NEVER use `present` until the correct item is confirmed to be selected
+
+Example:
+
+Scene says: “The currently selected evidence is 'Attorney's Badge'.”
+
+But I want to present: “Cindy's Autopsy Report”
+
+So I do:
+Turn 1:
+move: right
+thought: The Autopsy Report is not currently selected. I’ll navigate to it.
+
+Turn 2:
+move: present
+thought: The Autopsy Report is now selected. I’ll present it to contradict the witness.
+
+"""
 
     # Call the API
     if api_provider == "anthropic" and modality=="text-only":

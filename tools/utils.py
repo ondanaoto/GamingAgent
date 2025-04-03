@@ -596,12 +596,12 @@ def capture_game_window(image_name, window_name, cache_dir):
             crop_left=0,
             crop_right=710,
             crop_top=250,
-            crop_bottom=250,
+            crop_bottom=300,
             grid_rows=1,
             grid_cols=1,
             cache_dir=cache_dir
         )
-        screenshot = Image.open(annotate_image_path)
+        screenshot = Image.open(annotate_cropped_image_path)
     
     if screenshot:
         # Get current dimensions
