@@ -116,23 +116,26 @@ def vision_worker(system_prompt, api_provider, model_name,
         "1. Game State Detection Rules:\n"
         "   - Cross-Examination mode is indicated by ANY of these:\n"
         "     * A blue bar in the upper right corner\n"
-        "     * Green dialog text\n"
-        "     * Options(correspnding keyboard), press(correspnding keyboard), present UI(corresponding keyboard) elements at right down corner\n"
+        "     * Only Green dialog text\n"
+        "     * EXACTLY three UI elements at the right down corner: Options, Press, Present\n"
         "     * An evidence window visible in the middle of the screen\n"
         "   - If you see an evidence window, it is ALWAYS Cross-Examination mode\n"
+        "   - Conversation mode is indicated by:\n"
+        "     * EXACTLY two UI elements at the right down corner: Options, Court Record\n"
+        "     * Dialog text can be any color (most commonly white, but can also be blue, red, etc.)\n"
         "   - If you don't see any Cross-Examination indicators, it's Conversation mode\n\n"
         "2. Dialog Text Analysis:\n"
         "   - Look at the bottom-left area where dialog appears\n"
-        "   - Note the color of the dialog text (green/white)\n"
+        "   - Note the color of the dialog text (green/white/blue/red)\n"
         "   - Extract the speaker's name and their dialog\n"
         "   - Format must be exactly: Dialog: NAME: dialog text\n\n"
         "3. Scene Analysis:\n"
         "   - Describe any visible characters and their expressions/poses\n"
         "   - Describe any other important visual elements or interactive UI components\n"
         "   - You MUST explicitly mention:\n"
-        "     * The color of the dialog text (green/white)\n"
+        "     * The color of the dialog text (green/white/blue/red)\n"
         "     * Whether there is a blue bar in the upper right corner\n"
-        "     * The presence of Options(correspnding keyboard), press(correspnding keyboard), present UI(corresponding keyboard) UI elements\n"
+        "     * The exact UI elements present at the right down corner (Options, Press, Present for Cross-Examination or Options, Court Record for Conversation)\n"
         "     * Whether there is an evidence window visible\n"
         "     * If evidence window is visible:\n"
         "       - Name of the currently selected evidence\n"
@@ -144,7 +147,7 @@ def vision_worker(system_prompt, api_provider, model_name,
         "Game State: <'Cross-Examination' or 'Conversation'>\n"
         "Dialog: NAME: dialog text\n"
         "Evidence: NAME: description\n"
-        "Scene: <detailed description including dialog color, blue bar presence, evidence window status and contents, and other visual elements>"
+        "Scene: <detailed description including dialog color, blue bar presence, UI elements, evidence window status and contents, and other visual elements>"
     )
 
     print(f"Calling {model_name} API for vision analysis...")
@@ -262,7 +265,7 @@ def short_term_memory_worker(system_prompt, api_provider, model_name,
     # Add new response and maintain only last 7 responses
     prev_responses = dialog_history[episode_name]["prev_responses"]
     prev_responses.append(prev_response)
-    if len(prev_responses) > 7:
+    if len(prev_responses) > 14:
         prev_responses.pop(0)  # Remove oldest response
         
     # Save updated dialog history
@@ -383,7 +386,7 @@ Game State Strategies:
          * The evidence must directly contradict the witness's statement
        - No need to ask more questions if you're confident about the contradiction
      * If you don't find a contradiction or need more information:
-       - Use 'l' to question the witness about their statement
+       - Use 'l' to ask more details from the witness about their statement (it will swtich to conversation mode. You can use it to ask more details about his statement. After a few rounds of conversation, it will automatically switch back to cross-examination mode.)
        - Or use 'z' to move to their next statement if you don't need to ask more
    - The evidence window will automatically close after showing evidence
    - DO NOT use 'x'/'r' unless you have found a clear contradiction
@@ -521,6 +524,7 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
                 print(f"[INFO] New evidence collected: {evidence['name']}")
                 time.sleep(1)
 
+    perform_move("r")
     # No need to run reasoning or return reasoning_result
     return {
         "game_state": "Evidence",
