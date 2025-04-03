@@ -470,7 +470,7 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
     duplicate_found = False
 
     # Start in evidence mode
-    perform_move("court_record")
+    perform_move("r")
     time.sleep(1)
 
     while not duplicate_found:
