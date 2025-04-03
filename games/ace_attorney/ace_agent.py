@@ -55,7 +55,7 @@ def main():
     parser.add_argument("--thinking", type=str, default="False", help="Whether to use deep thinking.")
     parser.add_argument("--episode_name", type=str, default="The First Turnabout", 
                         help="Name of the current episode being played.")
-    parser.add_argument("--num_threads", type=int, default=5, help="Number of parallel threads to launch.")
+    parser.add_argument("--num_threads", type=int, default=3, help="Number of parallel threads to launch.")
     args = parser.parse_args()
 
     prev_response = ""
@@ -98,7 +98,7 @@ def main():
                         )
                     )
                     if i < args.num_threads - 1:  # Don't sleep after the last thread
-                        time.sleep(1)  # Add 1-second interval between launching threads
+                        time.sleep(2)  # Add 1-second interval between launching threads
                 
                 # Wait until all threads finish
                 concurrent.futures.wait(futures)
