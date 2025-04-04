@@ -71,13 +71,13 @@ def main():
     prev_response = ""
 
     # Delete existing cache directory if it exists and create a new one
-    # if os.path.exists(CACHE_DIR):
-    #     shutil.rmtree(CACHE_DIR)
-    # os.makedirs(CACHE_DIR, exist_ok=True)
+    if os.path.exists(CACHE_DIR):
+        shutil.rmtree(CACHE_DIR)
+    os.makedirs(CACHE_DIR, exist_ok=True)
 
     thinking_bool = str2bool(args.thinking)
 
-    # print("--------------------------------Start Evidence Worker--------------------------------")
+    print("--------------------------------Start Evidence Worker--------------------------------")
     evidence_result = ace_evidence_worker(
         system_prompt,
         args.api_provider,
