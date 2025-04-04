@@ -627,3 +627,9 @@ def capture_game_window(image_name, window_name, cache_dir):
         return screenshot_path
     
     return None
+
+def log_game_event(log_text, game_name="ace_attorney", cache_dir="cache"):
+    """Logs game events with timestamp to a dedicated log file."""
+    os.makedirs(os.path.join(cache_dir, game_name), exist_ok=True)
+    with open(os.path.join(cache_dir, game_name, f"{game_name}.log"), "a", encoding="utf-8") as f:
+        f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {log_text}\n")

@@ -25,7 +25,7 @@ def perform_move(move):
         time.sleep(0.1)
         pyautogui.keyUp(move.lower())
     
-    print(f"Performed move: {move}")
+    # print(f"Performed move: {move}")
 
 def log_move_and_thought(move, thought, latency):
     """
@@ -66,7 +66,7 @@ def vision_evidence_worker(system_prompt, api_provider, model_name, modality, th
         "Scene: <detailed description includes other visual elements>"
     )
 
-    print(f"Calling {model_name} API for vision analysis...")
+    # print(f"Calling {model_name} API for vision analysis...")
     
     if api_provider == "anthropic" and modality=="text-only":
         response = anthropic_text_completion(system_prompt, model_name, prompt, thinking)
@@ -151,7 +151,7 @@ def vision_worker(system_prompt, api_provider, model_name,
         "Scene: <detailed description including dialog color, blue bar presence, UI elements(corresponding keys, like r Present/Court Record or x present), evidence window status and contents, and other visual elements>"
     )
 
-    print(f"Calling {model_name} API for vision analysis...")
+    # print(f"Calling {model_name} API for vision analysis...")
     
     if api_provider == "anthropic" and modality=="text-only":
         response = anthropic_text_completion(system_prompt, model_name, prompt, thinking)
@@ -306,16 +306,16 @@ def memory_retrieval_worker(system_prompt, api_provider, model_name,
 
     # Compose complete memory context
     memory_context = f"""Background Conversation Context:
-{chr(10).join(background_context)}
+        {chr(10).join(background_context)}
 
-Cross-Examination Conversation Context:
-{chr(10).join(cross_examination_context)}
+        Cross-Examination Conversation Context:
+        {chr(10).join(cross_examination_context)}
 
-Previous 7 manipulations:
-{chr(10).join(prev_responses)}
+        Previous 7 manipulations:
+        {chr(10).join(prev_responses)}
 
-Collected Evidences:
-{chr(10).join(collected_evidences)}"""
+        Collected Evidences:
+        {chr(10).join(collected_evidences)}"""
 
     return memory_context
 
@@ -345,132 +345,127 @@ def reasoning_worker(system_prompt, api_provider, model_name, game_state, c_stat
     
     # Format evidence details for the prompt
     evidence_details = "\n".join([f"Evidence {i+1}: {e}" for i, e in enumerate(collected_evidences)])
-    print(scene)
+    # print(scene)
 
 
     if game_state == "Cross-Examination":
         # Construct the prompt for the API
         prompt = f"""You are Phoenix Wright, a defense attorney in Ace Attorney. Your goal is to prove your client's innocence by finding contradictions in witness testimonies and presenting the right evidence at the right time.
 
-    CURRENT GAME STATE: {game_state}
+            CURRENT GAME STATE: {game_state}
 
-    Your task is to evaluate the **current witness statement** and determine whether it contradicts any evidence in the Court Record.
+            Your task is to evaluate the **current witness statement** and determine whether it contradicts any evidence in the Court Record.
 
-    Current Statement: 
-    "{c_statement}"r
+            Current Statement: 
+            "{c_statement}"
 
-    Scene Description: (determine If the evidence window already opneded, if yes then try x or b)
-    {scene}
+            Scene Description: (determine if the evidence window is already opened)
+            {scene}
 
-    Evidence Status:  
-    - Total Evidence Collected: {num_collected_evidences}  
-    {evidence_details}
+            Evidence Status:  
+            - Total Evidence Collected: {num_collected_evidences}  
+            {evidence_details}
 
-    Memory Context:  
-    {memory_context}
+            Memory Context:  
+            {memory_context}
 
-    Be patient. DO NOT rush to present evidence. Always wait until the **decisive contradiction** becomes clear.
+            Be patient. DO NOT rush to present evidence. Always wait until the **decisive contradiction** becomes clear.
 
-    You may only present evidence if:
-    - A clear and specific contradiction exists between the current statement and an item in the Court Record
-    - The **correct** evidence item is currently selected
-    - The **evidence window is open**, and you are on the exact item you want to present
+            You may only present evidence if:
+            - A clear and specific contradiction exists between the current statement and an item in the Court Record
+            - The **correct** evidence item is currently selected
+            - The **evidence window is open**, and you are on the exact item you want to present
 
-    Never assume the correct evidence is selected. Always confirm it.
+            Never assume the correct evidence is selected. Always confirm it.
 
-Cross-Examination Mode (CURRENT STATE: {game_state}):
-   - ALWAYS compare the witness's statement with the available evidence
-   - For each statement, you have two options:
-     * If you find a clear contradiction with evidence: (Three steps, you can only do one step at a time. Be coherent with previous response.)
-       - First step: Use 'r' to open the evidence window
-       - Second step: Navigate through evidence using 'right'
-         * Look at each evidence carefully
-         * Only stop when you find the evidence that directly contradicts the statement
-         * If the current evidence doesn't match, keep navigating
-         * Be absolutely sure the evidence contradicts the statement before presenting
-       - Third step: Use 'x' to show the contradicting evidence
-         * Only present when you're certain this is the right evidence
-         * The evidence must directly contradict the witness's statement
-       - No need to ask more questions if you're confident about the contradiction
-     * If you don't find a contradiction or need more information:
-       - Use 'l' to ask more details from the witness about their statement
-       - Or use 'z' to move to their next statement if you don't need to ask more
+            Cross-Examination Mode (CURRENT STATE: {game_state}):
+            - ALWAYS compare the witness's statement with the available evidence
+            - For each statement, you have two options:
+            * If you find a clear contradiction with evidence: (Three steps, you can only do one step at a time. Be coherent with previous response.)
+                - First step: Use 'r' to open the evidence window
+                - Second step: Navigate through evidence using 'right'
+                * Look at each evidence carefully
+                * Only stop when you find the evidence that directly contradicts the statement
+                * If the current evidence doesn't match, keep navigating
+                * Be absolutely sure the evidence contradicts the statement before presenting
+                - Third step: Use 'x' to show the contradicting evidence
+                * Only present when you're certain this is the right evidence
+                * The evidence must directly contradict the witness's statement
+                * No need to ask more questions if you're confident about the contradiction
+            * If you don't find a contradiction or need more information:
+                - Use 'l' to ask more details from the witness about their statement
+                - Or use 'z' to move to their next statement if you don't need to ask more
 
-    Additional Rules:
-    - The evidence window will auto-close after presenting
-    - Do NOT use `'x'` or `'r'` unless you are sure
-    - If the evidence window is not open, NEVER present with `'x'`
+            Additional Rules:
+            - The evidence window will auto-close after presenting
+            - Do NOT use `'x'` or `'r'` unless you are sure
+            - If the evidence window is not open, NEVER present with `'x'`
 
-    Available moves:
-    * `'l'`: Question the witness about their statement
-    * `'z'`: Move to the next statement
-    * `'r'`: Open the evidence window (press `'b'` to cancel if unsure)
-    * `'b'`: Close the evidence window (if opened unintentionally)
-    * `'x'`: Present evidence (only after confirming it's correct)
-    * `'right'`: Navigate through the evidence
+            Available moves:
+            * `'l'`: Question the witness about their statement
+            * `'z'`: Move to the next statement
+            * `'r'`: Open the evidence window (press `'b'` to cancel if unsure)
+            * `'b'`: Close the evidence window (if opened unintentionally)
+            * `'x'`: Present evidence (only after confirming it's correct)
+            * `'right'`: Navigate through the evidence
 
-    Before using `'x'`, always ask yourself:
-    - "Is the currently selected evidence exactly the one I want to present?"
+            Before using `'x'`, always ask yourself:
+            - "Is the currently selected evidence exactly the one I want to present?"
 
-    If not:
-    - Use `'right'` to select the correct item
-    - DO NOT use `'x'` until it's confirmed
+            If not:
+            - Use `'right'` to select the correct item
+            - DO NOT use `'x'` until it's confirmed
 
-    Response Format (strict):
-    move: <move>
-    thought: <your internal reasoning>
+            Response Format (strict):
+            move: <move>
+            thought: <your internal reasoning>
 
-    IMPORTANT:
-    - If the evidence window is already open (scene will say so), DO NOT use 'r' again.
-    - If the evidence window is already open:
-        * Check what evidence is currently selected (as described in the scene).
-        * If it's not the evidence you want to present, use 'right' to navigate.
-        * Only use 'x' to present if the correct evidence is already selected.
-    - If the evidence window is NOT open and you intend to present, then use 'r' to open it first.
+            IMPORTANT:
+            - If the evidence window is already open (scene will say so), DO NOT use 'r' again
+            - If the evidence window is already open:
+            * Check what evidence is currently selected (as described in the scene)
+            * If it's not the evidence you want to present, use 'right' to navigate
+            * Only use 'x' to present if the correct evidence is already selected
+            - If the evidence window is NOT open and you intend to present, then use 'r' to open it first
 
+            Example 1:
+            Scene says: "The currently selected evidence is 'Attorney's Badge'."
+            But I want to present: "Cindy's Autopsy Report"
 
-    Example 1:
+            So I do:
+            Turn 1:  
+            move: right  
+            thought: The Autopsy Report is not selected yet. I'll navigate to it.
 
-    Scene says: "The currently selected evidence is 'Attorney's Badge'."
-    But I want to present: "Cindy's Autopsy Report"
+            Turn 2:  
+            move: x  
+            thought: The Autopsy Report is now selected. I'll present it to contradict the witness.
 
-    So I do:
+            Example 2 - Clear Contradiction with No Evidence Window:
+            Memory Context:
+            Witness: "I was at home at 8 PM last night."
+            Evidence: "Security Camera Footage: Shows the witness at the crime scene at 8 PM."
 
-    Turn 1:  
-    move: right  
-    thought: The Autopsy Report is not selected yet. I’ll navigate to it.
+            Scene: "Dialog text is green. There is a blue bar in the upper right corner. There are exactly three UI elements at the right down corner: Options, Press, Present. No evidence window is visible on screen. The witness is sweating and looking nervous."
 
-    Turn 2:  
-    move: x  
-    thought: The Autopsy Report is now selected. I’ll present it to contradict the witness.
+            Turn 1:
+            move: r
+            thought: I see a clear contradiction between the witness's statement and our security camera footage. The scene shows we're in cross-examination mode (green text, blue bar, three UI elements) but no evidence window is visible. I need to first open the evidence window by pressing 'r'.
 
+            Turn 2:
+            move: right
+            thought: I need to navigate to the security camera footage that proves the witness was at the crime scene at 8 PM.
 
-    Example 2 - Clear Contradiction with No Evidence Window:
+            Turn 3:
+            move: x
+            thought: I've found the security camera footage that proves the witness was at the crime scene at 8 PM. I'll present it to expose the contradiction.
 
-Memory Context:
-Witness: "I was at home at 8 PM last night."
-Evidence: "Security Camera Footage: Shows the witness at the crime scene at 8 PM."
-
-Scene: "Dialog text is green. There is a blue bar in the upper right corner. There are exactly three UI elements at the right down corner: Options, Press, Present. No evidence window is visible on screen. The witness is sweating and looking nervous."
-
-Turn 1:
-move: r
-thought: I see a clear contradiction between the witness's statement and our security camera footage. The scene shows we're in cross-examination mode (green text, blue bar, three UI elements) but no evidence window is visible. I need to first open the evidence window by pressing 'r'.
-
-Turn 2:
-move: right
-thought: I need to navigate to the security camera footage that proves the witness was at the crime scene at 8 PM.
-
-Turn 3:
-move: x
-thought: I've found the security camera footage that proves the witness was at the crime scene at 8 PM. I'll present it to expose the contradiction.
-
-Stuck Situation Handling:
-- If you notice that you haven't made any progress in the last 7 responses (check prev_responses)
-- If you're stuck in a loop or can't move forward
-- Use 'b' to jump out of the stucking loop
-- This is a general rule to prevent getting stuck in the game
-    """
+            Stuck Situation Handling:
+            - If you notice that you haven't made any progress in the last 7 responses (check prev_responses)
+            - If you're stuck in a loop or can't move forward
+            - Use 'b' to jump out of the stucking loop
+            - This is a general rule to prevent getting stuck in the game
+        """
         # Call the API
         if api_provider == "anthropic" and modality=="text-only":
             response = anthropic_text_completion(system_prompt, model_name, prompt, thinking)
@@ -705,6 +700,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         "move": reasoning_result["move"],
         "thought": reasoning_result["thought"]
     }
+
 
     return parsed_result
 

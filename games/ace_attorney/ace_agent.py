@@ -11,7 +11,7 @@ import re
 import pyautogui
 
 from games.ace_attorney.workers import ace_attorney_worker, perform_move, ace_evidence_worker, short_term_memory_worker
-from tools.utils import str2bool
+from tools.utils import str2bool, encode_image, log_output, get_annotate_img, capture_game_window, log_game_event
 from collections import Counter
 
 CACHE_DIR = "cache/ace_attorney"
@@ -60,23 +60,23 @@ def main():
 
     prev_response = ""
 
-    # # Delete existing cache directory if it exists and create a new one
-    # if os.path.exists(CACHE_DIR):
-    #     shutil.rmtree(CACHE_DIR)
-    # os.makedirs(CACHE_DIR, exist_ok=True)
+    # Delete existing cache directory if it exists and create a new one
+    if os.path.exists(CACHE_DIR):
+        shutil.rmtree(CACHE_DIR)
+    os.makedirs(CACHE_DIR, exist_ok=True)
 
     thinking_bool = str2bool(args.thinking)
 
     # print("--------------------------------Start Evidence Worker--------------------------------")
-    # evidence_result = ace_evidence_worker(
-    #     system_prompt,
-    #     args.api_provider,
-    #     args.model_name,
-    #     prev_response,
-    #     thinking=thinking_bool,
-    #     modality=args.modality,
-    #     episode_name = args.episode_name
-    # )
+    evidence_result = ace_evidence_worker(
+        system_prompt,
+        args.api_provider,
+        args.model_name,
+        prev_response,
+        thinking=thinking_bool,
+        modality=args.modality,
+        episode_name = args.episode_name
+    )
 
     try:
         while True:
@@ -106,49 +106,90 @@ def main():
                 concurrent.futures.wait(futures)
                 results = [f.result() for f in futures]
             
-            print("\n=== Thread Results Summary ===")
+            print("\n" + "="*70)
+            print("=== Analysis Results ===")
+            print("="*70)
             for i, result in enumerate(results, 1):
                 if result and "move" in result and "thought" in result and "game_state" in result:
-                    print(f"Thread {i}:")
-                    print(f"  Move: {result['move'].strip().lower()}")
-                    print(f"  Thought: {result['thought']}")
-                    print(f"  Game State: {result['game_state']}")
+                    print(f"\nThread {i} Analysis:")
+                    print(f"├── Game State: {result['game_state']}")
+                    print(f"├── Move: {result['move'].strip().lower()}")
+                    print(f"├── Thought Process:")
+                    print(f"│   ├── Primary Reasoning: {result['thought']}")
+                    if "dialog" in result and result["dialog"]:
+                        print(f"│   ├── Dialog Context: {result['dialog']['name']}: {result['dialog']['text']}")
+                    if "evidence" in result and result["evidence"]:
+                        print(f"│   ├── Evidence Context: {result['evidence']['name']}: {result['evidence']['description']}")
+                    if "scene" in result and result["scene"]:
+                        print(f"│   └── Scene Context: {result['scene'][:200]}...")
                 else:
-                    print(f"Thread {i}: Invalid result")
-            print("===========================\n")
+                    print(f"\nThread {i}: Invalid result")
+            print("\n" + "="*70)
 
             # Collect all moves and thoughts from the results
             moves = []
             thoughts = []
             game_states = []
+            dialogs = []
+            evidences = []
+            scenes = []
             
             for result in results:
                 if result and "move" in result and "thought" in result and "game_state" in result:
                     moves.append(result["move"].strip().lower())
                     thoughts.append(result["thought"])
                     game_states.append(result["game_state"])
+                    dialogs.append(result.get("dialog", {}))
+                    evidences.append(result.get("evidence", {}))
+                    scenes.append(result.get("scene", ""))
 
             if not moves:
                 print("[WARNING] No valid moves found in results")
                 continue
 
-            # Print vote counts
+            # Print vote counts with reasoning
             move_counts = Counter(moves)
-            print("\n=== Move Votes ===")
+            print("\n=== Move Analysis ===")
             for move, count in move_counts.most_common():
-                print(f"{move}: {count} votes")
-            print("================\n")
+                print(f"├── Move: {move}")
+                print(f"│   ├── Votes: {count}")
+                # Find all thoughts associated with this move
+                move_indices = [i for i, m in enumerate(moves) if m == move]
+                print(f"│   ├── Supporting Thoughts:")
+                for idx in move_indices:
+                    print(f"│   │   ├── Thought: {thoughts[idx]}")
+                    if dialogs[idx]:
+                        print(f"│   │   ├── Dialog: {dialogs[idx]['name']}: {dialogs[idx]['text']}")
+                    if evidences[idx]:
+                        print(f"│   │   ├── Evidence: {evidences[idx]['name']}: {evidences[idx]['description']}")
+                    print(f"│   │   └── Scene: {scenes[idx][:150]}...")
+            print("└──" + "─"*66)
 
             # Perform majority vote on moves
             chosen_move = majority_vote_move(moves)
-            
-            # Find the thought associated with the chosen move
-            chosen_thought = thoughts[moves.index(chosen_move)]
-            chosen_game_state = game_states[moves.index(chosen_move)]
+            chosen_idx = moves.index(chosen_move)
+            chosen_thought = thoughts[chosen_idx]
+            chosen_game_state = game_states[chosen_idx]
+            chosen_dialog = dialogs[chosen_idx]
+            chosen_evidence = evidences[chosen_idx]
+            chosen_scene = scenes[chosen_idx]
 
-            # Print current game state
-            print(f"Current Game State: {chosen_game_state}")
+            print("\n=== Final Decision ===")
+            print(f"├── Game State: {chosen_game_state}")
+            print(f"├── Chosen Move: {chosen_move}")
+            print(f"├── Decision Reasoning:")
+            print(f"│   ├── Primary Thought: {chosen_thought}")
+            if chosen_dialog:
+                print(f"│   ├── Dialog Context: {chosen_dialog['name']}: {chosen_dialog['text']}")
+            if chosen_evidence:
+                print(f"│   ├── Evidence Context: {chosen_evidence['name']}: {chosen_evidence['description']}")
+            print(f"│   └── Scene Context: {chosen_scene[:200]}...")
+            print(f"└── Execution Status: Pending")
+            print("="*70 + "\n")
             
+            # Log the final decision
+            log_game_event(f"Final Decision - State: {chosen_game_state}, Move: {chosen_move}, Thought: {chosen_thought}, Dialog: {chosen_dialog}, Evidence: {chosen_evidence}, Scene: {chosen_scene[:150]}...")
+
             # Perform the chosen move
             perform_move(chosen_move)
             
@@ -166,11 +207,9 @@ def main():
                 episode_name=args.episode_name
             )
 
-            print("[debug] previous response:")
-            print(prev_response)
             elapsed_time = time.time() - start_time
             time.sleep(4)
-            print(f"[INFO] Move executed in {elapsed_time:.2f} seconds.")
+            print(f"[INFO] Move executed in {elapsed_time:.2f} seconds\n")
     except KeyboardInterrupt:
         print("\nStopped by user.")
 
