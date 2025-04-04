@@ -147,7 +147,7 @@ def vision_worker(system_prompt, api_provider, model_name,
         "Game State: <'Cross-Examination' or 'Conversation'>\n"
         "Dialog: NAME: dialog text\n"
         "Evidence: NAME: description\n"
-        "Scene: <detailed description including dialog color, blue bar presence, UI elements, evidence window status and contents, and other visual elements>"
+        "Scene: <detailed description including dialog color, blue bar presence, UI elements(corresponding keys, like r Present/Court Record or x present), evidence window status and contents, and other visual elements>"
     )
 
     print(f"Calling {model_name} API for vision analysis...")
@@ -410,7 +410,7 @@ If the currently selected evidence is NOT the one I intend to present:
 - Do NOT assume the correct evidence is selected
 - NEVER use 'x' until the correct item is confirmed to be selected
 
-Example:
+Example 1 - Finding and Presenting Evidence:
 
 Scene says: "The currently selected evidence is 'Attorney's Badge'."
 
@@ -424,6 +424,32 @@ thought: The Autopsy Report is not currently selected. I'll navigate to it.
 Turn 2:
 move: x
 thought: The Autopsy Report is now selected. I'll present it to contradict the witness.
+
+Example 2 - Clear Contradiction with No Evidence Window:
+
+Memory Context:
+Witness: "I was at home at 8 PM last night."
+Evidence: "Security Camera Footage: Shows the witness at the crime scene at 8 PM."
+
+Scene: "Dialog text is green. There is a blue bar in the upper right corner. There are exactly three UI elements at the right down corner: Options, Press, Present. No evidence window is visible on screen. The witness is sweating and looking nervous."
+
+Turn 1:
+move: r
+thought: I see a clear contradiction between the witness's statement and our security camera footage. The scene shows we're in cross-examination mode (green text, blue bar, three UI elements) but no evidence window is visible. I need to first open the evidence window by pressing 'r'.
+
+Turn 2:
+move: right
+thought: I need to navigate to the security camera footage that proves the witness was at the crime scene at 8 PM.
+
+Turn 3:
+move: x
+thought: I've found the security camera footage that proves the witness was at the crime scene at 8 PM. I'll present it to expose the contradiction.
+
+Stuck Situation Handling:
+- If you notice that you haven't made any progress in the last 7 responses (check prev_responses)
+- If you're stuck in a loop or can't move forward
+- Use 'b' to jump out of the stucking loop
+- This is a general rule to prevent getting stuck in the game
 """
 
     # Call the API
@@ -558,7 +584,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         model_name,
         prev_response,
         thinking,
-        modality
+        modality="vision-text"
     )
 
     if "error" in vision_result:
