@@ -10,7 +10,16 @@ import json
 import re
 import pyautogui
 
-from games.ace_attorney.workers import ace_attorney_worker, perform_move, ace_evidence_worker, short_term_memory_worker
+from games.ace_attorney.workers import (
+    ace_attorney_worker, 
+    perform_move, 
+    ace_evidence_worker, 
+    short_term_memory_worker,
+    vision_only_reasoning_worker,
+    long_term_memory_worker,
+    memory_retrieval_worker,
+    vision_only_ace_attorney_worker
+)
 from tools.utils import str2bool, encode_image, log_output, get_annotate_img, capture_game_window, log_game_event
 from collections import Counter
 
@@ -50,11 +59,12 @@ def main():
     parser = argparse.ArgumentParser(description="Ace Attorney AI Agent")
     parser.add_argument("--api_provider", type=str, default="anthropic", help="API provider to use.")
     parser.add_argument("--model_name", type=str, default="claude-3-7-sonnet-20250219", help="LLM model name.")
-    parser.add_argument("--modality", type=str, default="vision-text", choices=["text-only", "vision-text"],
-                        help="modality used.")
+    parser.add_argument("--modality", type=str, default="vision-text", 
+                       choices=["text-only", "vision-text", "vision-only"],
+                       help="modality used.")
     parser.add_argument("--thinking", type=str, default="False", help="Whether to use deep thinking.")
     parser.add_argument("--episode_name", type=str, default="The First Turnabout", 
-                        help="Name of the current episode being played.")
+                       help="Name of the current episode being played.")
     parser.add_argument("--num_threads", type=int, default=1, help="Number of parallel threads to launch.")
     args = parser.parse_args()
 
@@ -67,7 +77,7 @@ def main():
 
     thinking_bool = str2bool(args.thinking)
 
-    # print("--------------------------------Start Evidence Worker--------------------------------")
+    # Start with evidence collection
     evidence_result = ace_evidence_worker(
         system_prompt,
         args.api_provider,
@@ -75,13 +85,18 @@ def main():
         prev_response,
         thinking=thinking_bool,
         modality=args.modality,
-        episode_name = args.episode_name
+        episode_name=args.episode_name
     )
 
     try:
         while True:
             start_time = time.time()
 
+            # Choose the appropriate worker based on modality
+            if args.modality == "vision-only":
+                worker_func = vision_only_ace_attorney_worker
+            else:
+                worker_func = ace_attorney_worker
 
             # Self-consistency launch with 1-second interval between threads
             with concurrent.futures.ThreadPoolExecutor(max_workers=args.num_threads) as executor:
@@ -89,7 +104,7 @@ def main():
                 for i in range(args.num_threads):
                     futures.append(
                         executor.submit(
-                            ace_attorney_worker,
+                            worker_func,
                             system_prompt,
                             args.api_provider,
                             args.model_name,

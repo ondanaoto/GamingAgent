@@ -514,7 +514,6 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
     2) Updates memory with newly seen evidence.
     3) Returns after exiting Evidence view.
     """
-    assert modality in ["text-only", "vision-text"], f"modality {modality} is not supported."
 
     seen_names = set()
     duplicate_found = False
@@ -703,5 +702,251 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
 
 
     return parsed_result
+
+def vision_only_reasoning_worker(system_prompt, api_provider, model_name, 
+    prev_response="", 
+    thinking=True, 
+    modality="vision-only",
+    episode_name="The First Turnabout"
+    ):
+    """
+    Combines vision analysis and reasoning in a single step.
+    Captures the game screen, analyzes it, and makes decisions based on the analysis.
+    Also updates long-term memory with new information.
+    """
+    assert modality == "vision-only", "This worker requires vision-only modality"
+
+    # Capture game window screenshot
+    screenshot_path = capture_game_window(
+        image_name="ace_attorney_screenshot.png",
+        window_name="Phoenix Wright: Ace Attorney Trilogy",
+        cache_dir=CACHE_DIR
+    )
+    if not screenshot_path:
+        return {"error": "Failed to capture game window"}
+
+    base64_image = encode_image(screenshot_path)
+    
+    # Get memory context for reasoning
+    memory_context = memory_retrieval_worker(
+        system_prompt,
+        api_provider,
+        model_name,
+        prev_response,
+        thinking,
+        modality,
+        episode_name
+    )
+
+    # Extract and format evidence information from memory
+    evidences_section = memory_context.split("Collected Evidences:")[1].strip()
+    collected_evidences = [e for e in evidences_section.split("\n") if e.strip()]
+    num_collected_evidences = len(collected_evidences)
+    evidence_details = "\n".join([f"Evidence {i+1}: {e}" for i, e in enumerate(collected_evidences)])
+
+    # Construct combined prompt for vision analysis and reasoning
+    prompt = f"""You are Phoenix Wright, a defense attorney in Ace Attorney. Your goal is to prove your client's innocence by finding contradictions in witness testimonies and presenting the right evidence at the right time.
+
+        First, analyze the current game screen and provide the following information:
+
+        1. Game State Detection Rules:
+           - Cross-Examination mode is indicated by ANY of these:
+             * A blue bar in the upper right corner
+             * Only Green dialog text
+             * EXACTLY three UI elements at the right down corner: Options, Press, Present
+             * An evidence window visible in the middle of the screen
+           - If you see an evidence window, it is ALWAYS Cross-Examination mode
+           - Conversation mode is indicated by:
+             * EXACTLY two UI elements at the right down corner: Options, Court Record
+             * Dialog text can be any color (most commonly white, but can also be blue, red, etc.)
+           - If you don't see any Cross-Examination indicators, it's Conversation mode
+
+        2. Dialog Text Analysis:
+           - Look at the bottom-left area where dialog appears
+           - Note the color of the dialog text (green/white/blue/red)
+           - Extract the speaker's name and their dialog
+           - Format must be exactly: Dialog: NAME: dialog text
+
+        3. Scene Analysis:
+           - Describe any visible characters and their expressions/poses
+           - Describe any other important visual elements or interactive UI components
+           - You MUST explicitly mention:
+             * The color of the dialog text (green/white/blue/red)
+             * Whether there is a blue bar in the upper right corner
+             * The exact UI elements present at the right down corner
+             * Whether there is an evidence window visible
+             * If evidence window is visible:
+               - Name of the currently selected evidence
+               - Description of the evidence
+               - Position in the evidence list (if visible)
+               - Whether this is the evidence you intend to present
+
+        Then, based on your analysis, make a decision about the next move:
+
+        Evidence Status:  
+        - Total Evidence Collected: {num_collected_evidences}  
+        {evidence_details}
+
+        Memory Context:  
+        {memory_context}
+
+        Be patient. DO NOT rush to present evidence. Always wait until the **decisive contradiction** becomes clear.
+
+        You may only present evidence if:
+        - A clear and specific contradiction exists between the current statement and an item in the Court Record
+        - The **correct** evidence item is currently selected
+        - The **evidence window is open**, and you are on the exact item you want to present
+
+        Never assume the correct evidence is selected. Always confirm it.
+
+        Available moves:
+        * `'l'`: Question the witness about their statement
+        * `'z'`: Move to the next statement
+        * `'r'`: Open the evidence window (press `'b'` to cancel if unsure)
+        * `'b'`: Close the evidence window (if opened unintentionally)
+        * `'x'`: Present evidence (only after confirming it's correct)
+        * `'right'`: Navigate through the evidence
+
+        Format your response EXACTLY as:
+        Game State: <'Cross-Examination' or 'Conversation'>
+        Dialog: NAME: dialog text
+        Evidence: NAME: description
+        Scene: <detailed description>
+        move: <move>
+        thought: <your internal reasoning>
+    """
+
+    # Call the API
+    if api_provider == "anthropic":
+        response = anthropic_completion(system_prompt, model_name, base64_image, prompt, thinking)
+    elif api_provider == "openai":
+        response = openai_completion(system_prompt, model_name, base64_image, prompt)
+    elif api_provider == "gemini":
+        response = gemini_completion(system_prompt, model_name, base64_image, prompt)
+    else:
+        raise NotImplementedError(f"API provider: {api_provider} is not supported.")
+
+    # Extract all information from response
+    game_state_match = re.search(r"Game State:\s*(Cross-Examination|Conversation)", response)
+    game_state = game_state_match.group(1) if game_state_match else "Unknown"
+    
+    dialog_match = re.search(r"Dialog:\s*([^:\n]+):\s*(.+?)(?=\n|$)", response)
+    dialog = {
+        "name": dialog_match.group(1) if dialog_match else "",
+        "text": dialog_match.group(2).strip() if dialog_match else ""
+    }
+    
+    evidence_match = re.search(r"Evidence:\s*([^:\n]+):\s*(.+?)(?=\n|$)", response)
+    evidence = {
+        "name": evidence_match.group(1) if evidence_match else "",
+        "description": evidence_match.group(2).strip() if evidence_match else ""
+    }
+    
+    scene_match = re.search(r"Scene:\s*(.+?)(?=\n|$)", response, re.DOTALL)
+    scene = scene_match.group(1).strip() if scene_match else ""
+    
+    move_match = re.search(r"move:\s*(.+?)(?=\n|$)", response)
+    move = move_match.group(1).strip() if move_match else ""
+    
+    thought_match = re.search(r"thought:\s*(.+?)(?=\n|$)", response)
+    thought = thought_match.group(1).strip() if thought_match else ""
+
+    # Update long-term memory
+    if game_state == "Evidence":
+        if evidence["name"] and evidence["description"]:
+            long_term_memory_worker(
+                system_prompt,
+                api_provider,
+                model_name,
+                prev_response,
+                thinking,
+                modality,
+                episode_name,
+                evidence=evidence
+            )
+    else:
+        if dialog["name"] and dialog["text"]:
+            long_term_memory_worker(
+                system_prompt,
+                api_provider,
+                model_name,
+                prev_response,
+                thinking,
+                modality,
+                episode_name,
+                dialog=dialog
+            )
+
+    return {
+        "game_state": game_state,
+        "dialog": dialog,
+        "evidence": evidence,
+        "scene": scene,
+        "screenshot_path": screenshot_path,
+        "memory_context": memory_context,
+        "move": move,
+        "thought": thought
+    }
+
+def vision_only_ace_attorney_worker(system_prompt, api_provider, model_name, 
+    prev_response="", 
+    thinking=True, 
+    modality="vision-only",
+    episode_name="The First Turnabout"
+    ):
+    """
+    Worker function that uses vision-only modality to analyze the game state and make decisions.
+    Combines vision analysis, reasoning, and memory management in a single step.
+    """
+    # First get memory context
+    memory_context = memory_retrieval_worker(
+        system_prompt,
+        api_provider,
+        model_name,
+        prev_response,
+        thinking,
+        modality,
+        episode_name
+    )
+
+    # Then use vision-only reasoning worker
+    result = vision_only_reasoning_worker(
+        system_prompt,
+        api_provider,
+        model_name,
+        prev_response,
+        thinking,
+        modality,
+        episode_name
+    )
+
+    # Update long-term memory if needed
+    if result and "game_state" in result:
+        if result["game_state"] == "Evidence":
+            if result["evidence"] and result["evidence"]["name"] and result["evidence"]["description"]:
+                long_term_memory_worker(
+                    system_prompt,
+                    api_provider,
+                    model_name,
+                    prev_response,
+                    thinking,
+                    modality,
+                    episode_name,
+                    evidence=result["evidence"]
+                )
+        else:
+            if result["dialog"] and result["dialog"]["name"] and result["dialog"]["text"]:
+                long_term_memory_worker(
+                    system_prompt,
+                    api_provider,
+                    model_name,
+                    prev_response,
+                    thinking,
+                    modality,
+                    episode_name,
+                    dialog=result["dialog"]
+                )
+
+    return result
 
 # return move_thought_list
