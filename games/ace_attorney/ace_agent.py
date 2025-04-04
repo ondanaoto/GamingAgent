@@ -55,12 +55,12 @@ def main():
     parser.add_argument("--thinking", type=str, default="False", help="Whether to use deep thinking.")
     parser.add_argument("--episode_name", type=str, default="The First Turnabout", 
                         help="Name of the current episode being played.")
-    parser.add_argument("--num_threads", type=int, default=3, help="Number of parallel threads to launch.")
+    parser.add_argument("--num_threads", type=int, default=1, help="Number of parallel threads to launch.")
     args = parser.parse_args()
 
     prev_response = ""
 
-    # Delete existing cache directory if it exists and create a new one
+    # # Delete existing cache directory if it exists and create a new one
     # if os.path.exists(CACHE_DIR):
     #     shutil.rmtree(CACHE_DIR)
     # os.makedirs(CACHE_DIR, exist_ok=True)
@@ -169,7 +169,7 @@ def main():
             print("[debug] previous response:")
             print(prev_response)
             elapsed_time = time.time() - start_time
-            time.sleep(3)
+            time.sleep(4)
             print(f"[INFO] Move executed in {elapsed_time:.2f} seconds.")
     except KeyboardInterrupt:
         print("\nStopped by user.")

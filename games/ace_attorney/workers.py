@@ -21,8 +21,9 @@ def perform_move(move):
         pyautogui.keyUp(move.lower())
     else:
         # For other keys, use the direct key press
-        pyautogui.press(move.lower())
+        pyautogui.keyDown(move.lower())
         time.sleep(0.1)
+        pyautogui.keyUp(move.lower())
     
     print(f"Performed move: {move}")
 
@@ -318,7 +319,7 @@ Collected Evidences:
 
     return memory_context
 
-def reasoning_worker(system_prompt, api_provider, model_name, game_state, scene, memory_context, base64_image=None, modality="vision-text", thinking=True):
+def reasoning_worker(system_prompt, api_provider, model_name, game_state, c_statement, scene, memory_context, base64_image=None, modality="vision-text", thinking=True):
     """
     Makes decisions about game moves based on current game state, scene description, and memory context.
     Uses API to generate thoughtful decisions.
@@ -344,39 +345,45 @@ def reasoning_worker(system_prompt, api_provider, model_name, game_state, scene,
     
     # Format evidence details for the prompt
     evidence_details = "\n".join([f"Evidence {i+1}: {e}" for i, e in enumerate(collected_evidences)])
-    
-    # Construct the prompt for the API
-    prompt = f"""You are Phoenix Wright, a defense attorney in Ace Attorney. Your goal is to prove your client's innocence by finding contradictions in witness testimonies and presenting the right evidence at the right time.
+    print(scene)
 
-CURRENT GAME STATE: {game_state}
-This is your current state. All decisions must be based on this state only.
 
-Scene Description: {scene}
+    if game_state == "Cross-Examination":
+        # Construct the prompt for the API
+        prompt = f"""You are Phoenix Wright, a defense attorney in Ace Attorney. Your goal is to prove your client's innocence by finding contradictions in witness testimonies and presenting the right evidence at the right time.
 
-Evidence Status:
-- Total Evidence Collected: {num_collected_evidences}
-{evidence_details}
+    CURRENT GAME STATE: {game_state}
 
-Memory Context:
-{memory_context}
+    Your task is to evaluate the **current witness statement** and determine whether it contradicts any evidence in the Court Record.
 
-Based on this information, decide what move to make. Your response must be in the exact format:
-move: <move>
-thought: <explanation>
+    Current Statement: 
+    "{c_statement}"r
 
-Game State Strategies:
+    Scene Description: (determine If the evidence window already opneded, if yes then try x or b)
+    {scene}
 
-1. Conversation Mode (CURRENT STATE: {game_state}):
-   - Use 'z' to continue the conversation
-   - DO NOT use any other commands in Conversation mode
-   - No press command in Conversation mode
+    Evidence Status:  
+    - Total Evidence Collected: {num_collected_evidences}  
+    {evidence_details}
 
-2. Cross-Examination Mode (CURRENT STATE: {game_state}):
+    Memory Context:  
+    {memory_context}
+
+    Be patient. DO NOT rush to present evidence. Always wait until the **decisive contradiction** becomes clear.
+
+    You may only present evidence if:
+    - A clear and specific contradiction exists between the current statement and an item in the Court Record
+    - The **correct** evidence item is currently selected
+    - The **evidence window is open**, and you are on the exact item you want to present
+
+    Never assume the correct evidence is selected. Always confirm it.
+
+Cross-Examination Mode (CURRENT STATE: {game_state}):
    - ALWAYS compare the witness's statement with the available evidence
    - For each statement, you have two options:
      * If you find a clear contradiction with evidence: (Three steps, you can only do one step at a time. Be coherent with previous response.)
        - First step: Use 'r' to open the evidence window
-       - Second step: Navigate through evidence using 'right'/'left'
+       - Second step: Navigate through evidence using 'right'
          * Look at each evidence carefully
          * Only stop when you find the evidence that directly contradicts the statement
          * If the current evidence doesn't match, keep navigating
@@ -386,46 +393,59 @@ Game State Strategies:
          * The evidence must directly contradict the witness's statement
        - No need to ask more questions if you're confident about the contradiction
      * If you don't find a contradiction or need more information:
-       - Use 'l' to ask more details from the witness about their statement (it will swtich to conversation mode. You can use it to ask more details about his statement. After a few rounds of conversation, it will automatically switch back to cross-examination mode.)
+       - Use 'l' to ask more details from the witness about their statement
        - Or use 'z' to move to their next statement if you don't need to ask more
-   - The evidence window will automatically close after showing evidence
-   - DO NOT use 'x'/'r' unless you have found a clear contradiction
-   - DO NOT use 'x'/'r' if you don't see an evidence window
 
-Available moves:
-- In Conversation:
-  * 'z': Continue the conversation
-- In Cross-Examination:
-  * 'l': Question the witness about their current statement
-  * 'z': Move to the next statement if you don't need to ask more
-  * 'r': Open the evidence window to show contradicting evidence
-  * 'x': Show the selected evidence (only when you're certain it contradicts)
-  * 'right'/'left': Navigate through evidence items to find the correct one
+    Additional Rules:
+    - The evidence window will auto-close after presenting
+    - Do NOT use `'x'` or `'r'` unless you are sure
+    - If the evidence window is not open, NEVER present with `'x'`
 
-Before using 'x', always ask:
-- Is the currently selected evidence the one I want to present?
+    Available moves:
+    * `'l'`: Question the witness about their statement
+    * `'z'`: Move to the next statement
+    * `'r'`: Open the evidence window (press `'b'` to cancel if unsure)
+    * `'b'`: Close the evidence window (if opened unintentionally)
+    * `'x'`: Present evidence (only after confirming it's correct)
+    * `'right'`: Navigate through the evidence
 
-If the currently selected evidence is NOT the one I intend to present:
-- Use 'right' or 'left' to navigate until the correct one is selected
-- Do NOT assume the correct evidence is selected
-- NEVER use 'x' until the correct item is confirmed to be selected
+    Before using `'x'`, always ask yourself:
+    - "Is the currently selected evidence exactly the one I want to present?"
 
-Example 1 - Finding and Presenting Evidence:
+    If not:
+    - Use `'right'` to select the correct item
+    - DO NOT use `'x'` until it's confirmed
 
-Scene says: "The currently selected evidence is 'Attorney's Badge'."
+    Response Format (strict):
+    move: <move>
+    thought: <your internal reasoning>
 
-But I want to present: "Cindy's Autopsy Report"
+    IMPORTANT:
+    - If the evidence window is already open (scene will say so), DO NOT use 'r' again.
+    - If the evidence window is already open:
+        * Check what evidence is currently selected (as described in the scene).
+        * If it's not the evidence you want to present, use 'right' to navigate.
+        * Only use 'x' to present if the correct evidence is already selected.
+    - If the evidence window is NOT open and you intend to present, then use 'r' to open it first.
 
-So I do:
-Turn 1:
-move: right
-thought: The Autopsy Report is not currently selected. I'll navigate to it.
 
-Turn 2:
-move: x
-thought: The Autopsy Report is now selected. I'll present it to contradict the witness.
+    Example 1:
 
-Example 2 - Clear Contradiction with No Evidence Window:
+    Scene says: "The currently selected evidence is 'Attorney's Badge'."
+    But I want to present: "Cindy's Autopsy Report"
+
+    So I do:
+
+    Turn 1:  
+    move: right  
+    thought: The Autopsy Report is not selected yet. I’ll navigate to it.
+
+    Turn 2:  
+    move: x  
+    thought: The Autopsy Report is now selected. I’ll present it to contradict the witness.
+
+
+    Example 2 - Clear Contradiction with No Evidence Window:
 
 Memory Context:
 Witness: "I was at home at 8 PM last night."
@@ -450,37 +470,43 @@ Stuck Situation Handling:
 - If you're stuck in a loop or can't move forward
 - Use 'b' to jump out of the stucking loop
 - This is a general rule to prevent getting stuck in the game
-"""
+    """
+        # Call the API
+        if api_provider == "anthropic" and modality=="text-only":
+            response = anthropic_text_completion(system_prompt, model_name, prompt, thinking)
+        elif api_provider == "anthropic":
+            response = anthropic_completion(system_prompt, model_name, base64_image, prompt, thinking)
+        elif api_provider == "openai" and "o3" in model_name and modality=="text-only":
+            response = openai_text_reasoning_completion(system_prompt, model_name, prompt)
+        elif api_provider == "openai":
+            response = openai_completion(system_prompt, model_name, base64_image, prompt)
+        elif api_provider == "gemini" and modality=="text-only":
+            response = gemini_text_completion(system_prompt, model_name, prompt)
+        elif api_provider == "gemini":
+            response = gemini_completion(system_prompt, model_name, base64_image, prompt)
+        elif api_provider == "deepseek":
+            response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
+        else:
+            raise NotImplementedError(f"API provider: {api_provider} is not supported.")
 
-    # Call the API
-    if api_provider == "anthropic" and modality=="text-only":
-        response = anthropic_text_completion(system_prompt, model_name, prompt, thinking)
-    elif api_provider == "anthropic":
-        response = anthropic_completion(system_prompt, model_name, base64_image, prompt, thinking)
-    elif api_provider == "openai" and "o3" in model_name and modality=="text-only":
-        response = openai_text_reasoning_completion(system_prompt, model_name, prompt)
-    elif api_provider == "openai":
-        response = openai_completion(system_prompt, model_name, base64_image, prompt)
-    elif api_provider == "gemini" and modality=="text-only":
-        response = gemini_text_completion(system_prompt, model_name, prompt)
-    elif api_provider == "gemini":
-        response = gemini_completion(system_prompt, model_name, base64_image, prompt)
-    elif api_provider == "deepseek":
-        response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
-    else:
-        raise NotImplementedError(f"API provider: {api_provider} is not supported.")
+        # Extract move and thought from response
+        move_match = re.search(r"move:\s*(.+?)(?=\n|$)", response)
+        thought_match = re.search(r"thought:\s*(.+?)(?=\n|$)", response)
+        
+        move = move_match.group(1).strip() if move_match else ""
+        thought = thought_match.group(1).strip() if thought_match else ""
 
-    # Extract move and thought from response
-    move_match = re.search(r"move:\s*(.+?)(?=\n|$)", response)
-    thought_match = re.search(r"thought:\s*(.+?)(?=\n|$)", response)
+        return {
+            "move": move,
+            "thought": thought
+        }
     
-    move = move_match.group(1).strip() if move_match else ""
-    thought = thought_match.group(1).strip() if thought_match else ""
-
-    return {
-        "move": move,
-        "thought": thought
-    }
+    else:
+        time.sleep(1)
+        return {
+            "move": "z",
+            "thought": "continue conversation"
+        }
 
 def ace_evidence_worker(system_prompt, api_provider, model_name, 
     prev_response="", 
@@ -530,7 +556,7 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
         if evidence["name"] and evidence["description"]:
             if evidence["name"] in seen_names:
                 duplicate_found = True
-                perform_move("cancel")
+                perform_move("b")
                 time.sleep(1)
                 print(f"[INFO] Duplicate evidence '{evidence['name']}' detected. Exiting evidence view.")
                 break
@@ -549,8 +575,6 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
                 perform_move("right")
                 print(f"[INFO] New evidence collected: {evidence['name']}")
                 time.sleep(1)
-
-    perform_move("r")
     # No need to run reasoning or return reasoning_result
     return {
         "game_state": "Evidence",
@@ -655,6 +679,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         episode_name
     )
 
+    c_statement = f"{dialog}"
     # -------------------- Reasoning -------------------- #
     # Make decisions about game moves
     reasoning_result = reasoning_worker(
@@ -662,6 +687,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         api_provider,
         model_name,
         game_state,
+        c_statement,
         scene,
         complete_memory,
         base64_image=encode_image(vision_result["screenshot_path"]),
