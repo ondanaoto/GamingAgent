@@ -61,22 +61,23 @@ def main():
     prev_response = ""
 
     # Delete existing cache directory if it exists and create a new one
-    if os.path.exists(CACHE_DIR):
-        shutil.rmtree(CACHE_DIR)
-    os.makedirs(CACHE_DIR, exist_ok=True)
+    # if os.path.exists(CACHE_DIR):
+    #     shutil.rmtree(CACHE_DIR)
+    # os.makedirs(CACHE_DIR, exist_ok=True)
 
     thinking_bool = str2bool(args.thinking)
 
     # print("--------------------------------Start Evidence Worker--------------------------------")
-    evidence_result = ace_evidence_worker(
-        system_prompt,
-        args.api_provider,
-        args.model_name,
-        prev_response,
-        thinking=thinking_bool,
-        modality=args.modality,
-        episode_name = args.episode_name
-    )
+    # evidence_result = ace_evidence_worker(
+    #     system_prompt,
+    #     args.api_provider,
+    #     args.model_name,
+    #     prev_response,
+    #     thinking=thinking_bool,
+    #     modality=args.modality,
+    #     episode_name = args.episode_name
+    # )
+    decision_state = None
 
     try:
         while True:
@@ -97,6 +98,7 @@ def main():
                             thinking=thinking_bool,
                             modality=args.modality,
                             episode_name=args.episode_name,
+                            decision_state=decision_state
                         )
                     )
                     if i < args.num_threads - 1:  # Don't sleep after the last thread
@@ -206,6 +208,15 @@ def main():
                 modality=args.modality,
                 episode_name=args.episode_name
             )
+
+            if chosen_move == "z" and decision_state and decision_state.get("has_options"):
+                decision_state = None  # 👈 RESET after confirming choice
+            else:
+                # Keep the state if returned by worker
+                for result in results:
+                    if "decision_state" in result:
+                        decision_state = result["decision_state"]
+
 
             elapsed_time = time.time() - start_time
             time.sleep(4)
