@@ -113,43 +113,55 @@ def vision_worker(system_prompt, api_provider, model_name,
     base64_image = encode_image(screenshot_path)
     
     prompt = (
-        "You are now playing Ace Attorney. Analyze the current scene and provide the following information:\n\n"
-        "1. Game State Detection Rules:\n"
-        "   - Cross-Examination mode is indicated by ANY of these:\n"
-        "     * A blue bar in the upper right corner\n"
-        "     * Only Green dialog text\n"
-        "     * EXACTLY three UI elements at the right down corner: Options, Press, Present\n"
-        "     * An evidence window visible in the middle of the screen\n"
-        "   - If you see an evidence window, it is ALWAYS Cross-Examination mode\n"
-        "   - Conversation mode is indicated by:\n"
-        "     * EXACTLY two UI elements at the right down corner: Options, Court Record\n"
-        "     * Dialog text can be any color (most commonly white, but can also be blue, red, etc.)\n"
-        "   - If you don't see any Cross-Examination indicators, it's Conversation mode\n\n"
-        "2. Dialog Text Analysis:\n"
-        "   - Look at the bottom-left area where dialog appears\n"
-        "   - Note the color of the dialog text (green/white/blue/red)\n"
-        "   - Extract the speaker's name and their dialog\n"
-        "   - Format must be exactly: Dialog: NAME: dialog text\n\n"
-        "3. Scene Analysis:\n"
-        "   - Describe any visible characters and their expressions/poses\n"
-        "   - Describe any other important visual elements or interactive UI components\n"
-        "   - You MUST explicitly mention:\n"
-        "     * The color of the dialog text (green/white/blue/red)\n"
-        "     * Whether there is a blue bar in the upper right corner\n"
-        "     * The exact UI elements present at the right down corner (Options, Press, Present for Cross-Examination or Options, Court Record for Conversation)\n"
-        "     * Whether there is an evidence window visible\n"
-        "     * If evidence window is visible:\n"
-        "       - Name of the currently selected evidence\n"
-        "       - Description of the evidence\n"
-        "       - Position in the evidence list (if visible)\n"
-        "       - Whether this is the evidence you intend to present\n\n"
+            "You are now playing Ace Attorney. Analyze the current scene and provide the following information:\n\n"
+            
+            "1. Game State Detection Rules:\n"
+            "   - Cross-Examination mode is indicated by ANY of these:\n"
+            "     * A blue bar in the upper right corner\n"
+            "     * Only green dialog text\n"
+            "     * Two or more white-text options appearing in the **middle** of the screen (e.g., 'Yes' and 'No')\n"
+            "     * EXACTLY three UI elements at the bottom-right corner: Options, Press, Present\n"
+            "     * An evidence window visible in the middle of the screen\n"
+            "   - If you see an evidence window, it is ALWAYS Cross-Examination mode\n"
+            "   - Conversation mode is indicated by:\n"
+            "     * EXACTLY two UI elements at the bottom-right corner: Options, Court Record\n"
+            "     * Dialog text can be any color (most commonly white, but also blue, red, etc.)\n"
+            "   - If none of the Cross-Examination indicators are present, it is Conversation mode\n\n"
+            
+            "2. Dialog Text Analysis:\n"
+            "   - Look at the bottom-left area where dialog appears\n"
+            "   - Note the color of the dialog text (green/white/blue/red)\n"
+            "   - Extract the speaker's name and their dialog\n"
+            "   - Format must be exactly: Dialog: NAME: dialog text\n\n"
+            
+            "3. Scene Analysis:\n"
+            "   - Describe any visible characters and their expressions/poses\n"
+            "   - Describe any other important visual elements or interactive UI components\n"
+            "   - Describe any options with blue background appearing in the **middle** of the screen\n"
+            "   - You MUST explicitly mention:\n"
+            "     * The color of the dialog text (green/white/blue/red)\n"
+            "     * Whether there is a blue bar in the upper right corner\n"
+            "     * The exact UI elements present at the bottom-right corner (Options, Press, Present for Cross-Examination or Options, Court Record for Conversation)\n"
+            "     * Whether there is an evidence window visible\n"
+            "     * If options appear in the middle of the screen:\n"
+            "       - List the text of each option in order from top to bottom\n"
+            "       - Identify which one is currently selected\n"
+            "       - Use the yellow or gold border around the option to determine selection\n"
+            "       - Do NOT assume the bottom option is selected by default — selection depends entirely on the visual highlight\n"
+            "     * If evidence window is visible:\n"
+            "       - Name of the currently selected evidence\n"
+            "       - Description of the evidence\n"
+            "       - Position in the evidence list (if visible)\n"
+            "       - Whether this is the evidence you intend to present\n\n"
+            
+            "Format your response EXACTLY as:\n"
+            "Game State: <'Cross-Examination' or 'Conversation'>\n"
+            "Dialog: NAME: dialog text\n"
+            "Options: option1, selected; option2, not selected; option3, not selected\n"
+            "Evidence: NAME: description\n"
+            "Scene: <detailed description including dialog color, options text (if exsisit), blue bar presence, UI elements (corresponding keys, like r Present/Court Record or x Present), evidence window status and contents, and other visual elements>"
+            )
 
-        "Format your response EXACTLY as:\n"
-        "Game State: <'Cross-Examination' or 'Conversation'>\n"
-        "Dialog: NAME: dialog text\n"
-        "Evidence: NAME: description\n"
-        "Scene: <detailed description including dialog color, blue bar presence, UI elements(corresponding keys, like r Present/Court Record or x present), evidence window status and contents, and other visual elements>"
-    )
 
     # print(f"Calling {model_name} API for vision analysis...")
     
@@ -169,7 +181,6 @@ def vision_worker(system_prompt, api_provider, model_name,
         response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-    
     return {
         "response": response,
         "screenshot_path": screenshot_path
@@ -319,7 +330,7 @@ def memory_retrieval_worker(system_prompt, api_provider, model_name,
 
     return memory_context
 
-def reasoning_worker(system_prompt, api_provider, model_name, game_state, c_statement, scene, memory_context, base64_image=None, modality="vision-text", thinking=True):
+def reasoning_worker(options, system_prompt, api_provider, model_name, game_state, c_statement, scene, memory_context, base64_image=None, modality="vision-text", thinking=True):
     """
     Makes decisions about game moves based on current game state, scene description, and memory context.
     Uses API to generate thoughtful decisions.
@@ -345,127 +356,143 @@ def reasoning_worker(system_prompt, api_provider, model_name, game_state, c_stat
     
     # Format evidence details for the prompt
     evidence_details = "\n".join([f"Evidence {i+1}: {e}" for i, e in enumerate(collected_evidences)])
-    # print(scene)
+    print(scene)
 
 
     if game_state == "Cross-Examination":
-        # Construct the prompt for the API
         prompt = f"""You are Phoenix Wright, a defense attorney in Ace Attorney. Your goal is to prove your client's innocence by finding contradictions in witness testimonies and presenting the right evidence at the right time.
 
-            CURRENT GAME STATE: {game_state}
+        CURRENT GAME STATE: {game_state}
 
-            Your task is to evaluate the **current witness statement** and determine whether it contradicts any evidence in the Court Record.
+        Your task is to evaluate the **current witness statement** and determine whether it contradicts any evidence in the Court Record.
 
-            Current Statement: 
-            "{c_statement}"
+        Current Statement: 
+        "{c_statement}"
 
-            Scene Description: (determine if the evidence window is already opened)
-            {scene}
+        Current options: (determine if there are options, if yes then use 'z' to continue or use 'down' to change)
+        {options}
 
-            Evidence Status:  
-            - Total Evidence Collected: {num_collected_evidences}  
-            {evidence_details}
+        Scene Description: (determine if the evidence window is already opened)
+        {scene}
 
-            Memory Context:  
-            {memory_context}
+        Evidence Status:  
+        - Total Evidence Collected: {num_collected_evidences}  
+        {evidence_details}
 
-            Be patient. DO NOT rush to present evidence. Always wait until the **decisive contradiction** becomes clear.
+        Memory Context:  
+        {memory_context}
 
-            You may only present evidence if:
-            - A clear and specific contradiction exists between the current statement and an item in the Court Record
-            - The **correct** evidence item is currently selected
-            - The **evidence window is open**, and you are on the exact item you want to present
+        Be patient. DO NOT rush to present evidence. Always wait until the **decisive contradiction** becomes clear.
 
-            Never assume the correct evidence is selected. Always confirm it.
+        You may only present evidence if:
+        - A clear and specific contradiction exists between the current statement and an item in the Court Record
+        - The **correct** evidence item is currently selected
+        - The **evidence window is open**, and you are on the exact item you want to present
 
-            Cross-Examination Mode (CURRENT STATE: {game_state}):
-            - ALWAYS compare the witness's statement with the available evidence
-            - For each statement, you have two options:
-            * If you find a clear contradiction with evidence: (Three steps, you can only do one step at a time. Be coherent with previous response.)
-                - First step: Use 'r' to open the evidence window
-                - Second step: Navigate through evidence using 'right'
-                * Look at each evidence carefully
-                * Only stop when you find the evidence that directly contradicts the statement
-                * If the current evidence doesn't match, keep navigating
-                * Be absolutely sure the evidence contradicts the statement before presenting
-                - Third step: Use 'x' to show the contradicting evidence
-                * Only present when you're certain this is the right evidence
-                * The evidence must directly contradict the witness's statement
-                * No need to ask more questions if you're confident about the contradiction
-            * If you don't find a contradiction or need more information:
-                - Use 'l' to ask more details from the witness about their statement
-                - Or use 'z' to move to their next statement if you don't need to ask more
+        Never assume the correct evidence is selected. Always confirm it.
 
-            Additional Rules:
-            - The evidence window will auto-close after presenting
-            - Do NOT use `'x'` or `'r'` unless you are sure
-            - If the evidence window is not open, NEVER present with `'x'`
+        Cross-Examination Mode (CURRENT STATE: {game_state}):
+        - ALWAYS compare the witness's statement with the available evidence
+        - For each statement, you have two options:
+        * If you find a clear contradiction with evidence: (Three steps — one per turn)
+            - Step 1: Use 'r' to open the evidence window
+            - Step 2: Navigate through evidence using 'right'
+                * Look at each item carefully
+                * Keep navigating until the evidence that directly contradicts the statement is selected
+            - Step 3: Use 'x' to present the contradicting evidence
+                * Only present if the evidence is currently selected and the contradiction is clear
+        * If you don’t find a contradiction or need more context:
+            - Use 'l' to press the witness for more details
+            - Or use 'z' to move to the next statement
 
-            Available moves:
-            * `'l'`: Question the witness about their statement
-            * `'z'`: Move to the next statement
-            * `'r'`: Open the evidence window (press `'b'` to cancel if unsure)
-            * `'b'`: Close the evidence window (if opened unintentionally)
-            * `'x'`: Present evidence (only after confirming it's correct)
-            * `'right'`: Navigate through the evidence
+        - If there are on-screen decision options (like "Yes", "No", "Press", "Present"), you must:
+            * Use `'down'` to navigate between them
+            * Use `'z'` to confirm the currently highlighted option
 
-            Before using `'x'`, always ask yourself:
-            - "Is the currently selected evidence exactly the one I want to present?"
+        Additional Rules:
+        - The evidence window will auto-close after presenting
+        - Do NOT use `'x'` or `'r'` unless you are certain
+        - If the evidence window is NOT open, NEVER use `'x'` to present
 
-            If not:
-            - Use `'right'` to select the correct item
-            - DO NOT use `'x'` until it's confirmed
+        Available moves:
+        * `'l'`: Question the witness about their statement
+        * `'z'`: Move to the next statement OR confirm a selected option
+        * `'r'`: Open the evidence window (press `'b'` to cancel if unsure)
+        * `'b'`: Close the evidence window or cancel a mistake
+        * `'x'`: Present evidence (only after confirming it's correct)
+        * `'right'`: Navigate through the evidence items
+        * `'down'`: Navigate between options (like Yes/No or Press/Present) when visible
 
-            Response Format (strict):
-            move: <move>
-            thought: <your internal reasoning>
+        Before using `'x'`, always ask:
+        - "Is the currently selected evidence exactly the one I want to present?"
 
-            IMPORTANT:
-            - If the evidence window is already open (scene will say so), DO NOT use 'r' again
-            - If the evidence window is already open:
-            * Check what evidence is currently selected (as described in the scene)
-            * If it's not the evidence you want to present, use 'right' to navigate
-            * Only use 'x' to present if the correct evidence is already selected
-            - If the evidence window is NOT open and you intend to present, then use 'r' to open it first
+        If not:
+        - Use `'right'` to select the correct evidence
+        - DO NOT use `'x'` until it's confirmed
 
-            Example 1:
-            Scene says: "The currently selected evidence is 'Attorney's Badge'."
-            But I want to present: "Cindy's Autopsy Report"
+        Response Format (strict):
+        move: <move>
+        thought: <your internal reasoning>
 
-            So I do:
-            Turn 1:  
-            move: right  
-            thought: The Autopsy Report is not selected yet. I'll navigate to it.
+        IMPORTANT:
+        - If the evidence window is already open, do NOT use 'r' again
+        - Check what evidence is selected (based on scene description)
+        - Use 'right' to navigate if it's not the correct one
+        - Only use 'x' when the right evidence is selected
+        - If options are on screen, navigate with 'down', confirm with 'z'
 
-            Turn 2:  
-            move: x  
-            thought: The Autopsy Report is now selected. I'll present it to contradict the witness.
+        Example 1:
+        Scene says: "The currently selected evidence is 'Attorney's Badge'."
+        But I want to present: "Cindy's Autopsy Report"
 
-            Example 2 - Clear Contradiction with No Evidence Window:
-            Memory Context:
-            Witness: "I was at home at 8 PM last night."
-            Evidence: "Security Camera Footage: Shows the witness at the crime scene at 8 PM."
+        Turn 1:  
+        move: right  
+        thought: The Autopsy Report is not selected yet. I'll navigate to it.
 
-            Scene: "Dialog text is green. There is a blue bar in the upper right corner. There are exactly three UI elements at the right down corner: Options, Press, Present. No evidence window is visible on screen. The witness is sweating and looking nervous."
+        Turn 2:  
+        move: x  
+        thought: The Autopsy Report is now selected. I'll present it to contradict the witness.
 
-            Turn 1:
-            move: r
-            thought: I see a clear contradiction between the witness's statement and our security camera footage. The scene shows we're in cross-examination mode (green text, blue bar, three UI elements) but no evidence window is visible. I need to first open the evidence window by pressing 'r'.
+        Example 2 - Clear Contradiction with No Evidence Window:
+        Memory Context:
+        Witness: "I was at home at 8 PM last night."
+        Evidence: "Security Camera Footage: Shows the witness at the crime scene at 8 PM."
 
-            Turn 2:
-            move: right
-            thought: I need to navigate to the security camera footage that proves the witness was at the crime scene at 8 PM.
+        Scene: "Dialog text is green. There is a blue bar in the upper right corner. There are exactly three UI elements at the bottom-right corner: Options, Press, Present. No evidence window is visible. The witness is sweating and looking nervous."
 
-            Turn 3:
-            move: x
-            thought: I've found the security camera footage that proves the witness was at the crime scene at 8 PM. I'll present it to expose the contradiction.
+        Turn 1:
+        move: r
+        thought: I see a clear contradiction between the witness's statement and our security camera footage. We're in cross-examination mode, but the evidence window isn't open. I'll open it first.
 
-            Stuck Situation Handling:
-            - If you notice that you haven't made any progress in the last 7 responses (check prev_responses)
-            - If you're stuck in a loop or can't move forward
-            - Use 'b' to jump out of the stucking loop
-            - This is a general rule to prevent getting stuck in the game
-        """
+        Turn 2:
+        move: right
+        thought: I need to navigate to the security camera footage.
+
+        Turn 3:
+        move: x
+        thought: I've selected the right evidence. Presenting it now to contradict the witness.
+
+        Example 3 - Using 'down' to select an option before confirming:
+
+        Scene: "Two white-text options appear in the middle of the screen: 'Yes' and 'No'. 'No' is currently highlighted. Dialog text is white. This is Cross-Examination mode."
+
+        I want to answer yes, so I need to switch to 'Yes' before confirming.
+
+        Turn 1:
+        move: down
+        thought: 'No' is selected by default, but I want to choose 'Yes'. I'll navigate to it.
+
+        Turn 2:
+        move: z
+        thought: 'Yes' is now selected. I'll confirm the choice.
+
+        Stuck Situation Handling:
+        - If no progress has been made in the last 7 responses (check prev_responses)
+        - If the agent seems stuck in a loop or unable to advance
+        - Use 'b' to break out of the loop
+        - This helps the agent recover and move forward in the game
+    """
+
         # Call the API
         if api_provider == "anthropic" and modality=="text-only":
             response = anthropic_text_completion(system_prompt, model_name, prompt, thinking)
@@ -581,6 +608,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     thinking=True, 
     modality="vision-text",
     episode_name="The First Turnabout",
+    decision_state=None,
     ):
     """
     1) Captures a screenshot of the current game state.
@@ -628,7 +656,42 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         "name": evidence_match.group(1) if evidence_match else "",
         "description": evidence_match.group(2).strip() if evidence_match else ""
     }
-    
+    ###------------ Extract Options ---------------###
+    print(response_text)
+    # Default options structure
+    options = {
+        "choices": [],
+        "selected": ""
+    }
+
+    options_match = re.search(r"Options:\s*(.+)", response_text)
+    if options_match:
+        raw_options = options_match.group(1).strip()
+        if raw_options.lower() != "none":
+            # Extract individual option entries using comma-separated pairs
+            option_entries = [opt.strip() for opt in raw_options.split(';') if opt.strip()]
+            for entry in option_entries:
+                match = re.match(r"(.+?),\s*(selected|not selected)", entry)
+                if match:
+                    text, state = match.groups()
+                    options["choices"].append(text.strip())
+                    if state == "selected":
+                        options["selected"] = text.strip()
+
+    if options["choices"]:
+        game_state = "Cross-Examination"
+        if decision_state is None:
+            decision_state = {
+                "has_options": True,
+                "down_count": 0,
+                "selection_index": 0,
+                "selected_text": options["choices"][0],  # default to first option
+                "decision_timestamp": None
+            }
+        options["selected"] = decision_state["selected_text"]
+
+    print(options)
+        
     # Extract Scene Description
     scene_match = re.search(r"Scene:\s*(.+?)(?=\n|$)", response_text, re.DOTALL)
     scene = scene_match.group(1).strip() if scene_match else ""
@@ -677,6 +740,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     # -------------------- Reasoning -------------------- #
     # Make decisions about game moves
     reasoning_result = reasoning_worker(
+        options,
         system_prompt,
         api_provider,
         model_name,
@@ -689,6 +753,20 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         thinking=thinking
     )
 
+
+        # In your reasoning loop, track moves:
+    if decision_state:
+        if reasoning_result["move"] == "down" and decision_state["has_options"]:
+            decision_state["down_count"] += 1
+            i = min(decision_state["down_count"], len(options["choices"]) - 1)
+            decision_state["selection_index"] = i
+            decision_state["selected_text"] = options["choices"][i]
+
+        if reasoning_result["move"] == "z" and decision_state["has_options"]:
+            decision_state["decision_timestamp"] = time.time()
+            print(f"[Decision Made] Selected option: '{decision_state['selected_text']}' at index {decision_state['selection_index']} (via {decision_state['down_count']} down moves)")
+
+
     parsed_result = {
         "game_state": game_state,
         "dialog": dialog,
@@ -697,7 +775,9 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         "screenshot_path": vision_result["screenshot_path"],
         "memory_context": complete_memory,
         "move": reasoning_result["move"],
-        "thought": reasoning_result["thought"]
+        "thought": reasoning_result["thought"],
+        "options":options,
+        "decision_state": decision_state
     }
 
 
