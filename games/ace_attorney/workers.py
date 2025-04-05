@@ -10,6 +10,8 @@ import json
 
 CACHE_DIR = "cache/ace_attorney"
 
+
+
 def perform_move(move):
     """
     Directly performs the move using keyboard input without key mapping.
@@ -55,15 +57,15 @@ def vision_evidence_worker(system_prompt, api_provider, model_name, modality, th
     
     # Construct prompt for LLM
     prompt = (
-        "You are now playing Ace Attorney. Analyze the current scene and provide the following information:\n\n"
-        "Look at the evidence presentation window\n"
-        "For the item, provide its name and description\n"
-
-        "Format your response EXACTLY as:\n"
-        "Game State: <'Evidence'>\n"
-        "Dialog: None\n"
-        "Evidence: NAME: description\n"
-        "Scene: <detailed description includes other visual elements>"
+        "You are analyzing the evidence screen in Phoenix Wright: Ace Attorney.\n\n"
+        "Describe ONLY the visual appearance and details of the evidence currently displayed.\n"
+        "Do NOT restate the evidence name or text description from the Court Record.\n\n"
+        "Focus on things like:\n"
+        "- Shape, size, material, color\n"
+        "- Any writing, symbols, damage, or special features\n"
+        "- Context clues that might indicate how the item is used or related to the case\n\n"
+        "Output format:\n"
+        "Evidence Description: <your detailed visual description here>"
     )
 
     # print(f"Calling {model_name} API for vision analysis...")
@@ -224,8 +226,8 @@ def long_term_memory_worker(system_prompt, api_provider, model_name,
             dialog_history[episode_name]["Case_Transcript"].append(dialog_entry)
 
     # Update evidence if provided
-    if evidence and evidence["name"] and evidence["description"]:
-        evidence_entry = f"{evidence['name']}: {evidence['description']}"
+    if evidence and evidence["name"] and evidence["text"] and evidence["description"]:
+        evidence_entry = f"{evidence['name']}: {evidence['text']}. UI description: {evidence['description']}"
         if evidence_entry not in dialog_history[episode_name]["evidences"]:
             dialog_history[episode_name]["evidences"].append(evidence_entry)
 
@@ -537,20 +539,30 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
     episode_name="The First Turnabout",
     ):
     """
-    1) Loops through evidence items until all are seen or a duplicate appears.
-    2) Updates memory with newly seen evidence.
-    3) Returns after exiting Evidence view.
+    Iterates through known evidences using vision, stores full evidence with name, text, and vision-based description.
     """
+    background_file = "games/ace_attorney/ace_attorney_1.json"
+    with open(background_file, 'r') as f:
+        background_data = json.load(f)
+    evidence_lines = background_data[episode_name]["evidences"]
 
-    seen_names = set()
-    duplicate_found = False
+    PREDEFINED_EVIDENCES = {
+        item.split(":")[0].strip().upper(): ":".join(item.split(":")[1:]).strip()
+        for item in evidence_lines
+    }
 
-    # Start in evidence mode
+    print(PREDEFINED_EVIDENCES)
+
+    evidence_names = list(PREDEFINED_EVIDENCES.keys())
+    collected = []
+
+    time.sleep(1)
+    # Step 1: Open Court Record
     perform_move("r")
     time.sleep(1)
 
-    while not duplicate_found:
-        # Analyze the current evidence screen
+    for name in evidence_names:
+        # Get visual description via LLM
         vision_result = vision_evidence_worker(
             system_prompt,
             api_provider,
@@ -558,49 +570,46 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
             modality,
             thinking
         )
-        # print("[Vision Analysis Result]")
-        # print(vision_result)
-
         if "error" in vision_result:
             return vision_result
+        
+        # Parse the vision result: look for line starting with "Evidence Description:"
+        desc_match = re.search(r"Evidence Description:\s*(.+)", vision_result["response"])
+        visual_description = desc_match.group(1).strip() if desc_match else "No description found."
 
-        response_text = vision_result["response"]
-
-        # Extract evidence info
-        evidence_match = re.search(r"Evidence:\s*([^:\n]+):\s*(.+?)(?=\n|$)", response_text)
+        # Build evidence
         evidence = {
-            "name": evidence_match.group(1) if evidence_match else "",
-            "description": evidence_match.group(2).strip() if evidence_match else ""
+            "name": name,
+            "text": PREDEFINED_EVIDENCES[name],
+            "description": visual_description
         }
 
-        # Update memory if new
-        if evidence["name"] and evidence["description"]:
-            if evidence["name"] in seen_names:
-                duplicate_found = True
-                perform_move("b")
-                time.sleep(1)
-                print(f"[INFO] Duplicate evidence '{evidence['name']}' detected. Exiting evidence view.")
-                break
-            else:
-                seen_names.add(evidence["name"])
-                long_term_memory_worker(
-                    system_prompt,
-                    api_provider,
-                    model_name,
-                    prev_response,
-                    thinking,
-                    modality,
-                    episode_name,
-                    evidence=evidence
-                )
-                perform_move("right")
-                print(f"[INFO] New evidence collected: {evidence['name']}")
-                time.sleep(1)
-    # No need to run reasoning or return reasoning_result
+        # Save to memory
+        long_term_memory_worker(
+            system_prompt,
+            api_provider,
+            model_name,
+            prev_response,
+            thinking,
+            modality,
+            episode_name,
+            evidence=evidence
+        )
+
+        print(f"[INFO] Collected evidence: {evidence}")
+        collected.append(evidence)
+
+        # Move to next item
+        perform_move("right")
+        time.sleep(1)
+
+    # Step 2: Close Court Record
+    perform_move("b")
+    time.sleep(1)
+
     return {
         "game_state": "Evidence",
-        "evidence": evidence,
-        "seen": list(seen_names)
+        "collected_evidences": collected
     }
 
 def ace_attorney_worker(system_prompt, api_provider, model_name, 
@@ -695,6 +704,9 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     # Extract Scene Description
     scene_match = re.search(r"Scene:\s*(.+?)(?=\n|$)", response_text, re.DOTALL)
     scene = scene_match.group(1).strip() if scene_match else ""
+
+    if "green" in scene:
+        game_state = "Cross-Examination"
 
     # -------------------- Memory Processing -------------------- #
     # Update long-term memory only

@@ -126,6 +126,13 @@
             "Mia: You hold the key! It's in the evidence! Compare the witness's testimony to the evidence at hand. There's bound to be a contradiction in there! First, find contradictions between the Court Record and the witness's testimony. Then, once you've found the contradicting evidence... present it and rub it in the witness's face!",
             "Phoenix: Um... okay.",
             "Mia: Open the Court Record with [the R Button / Tab], then point out contradictions in the testimony!"
+        ],
+        "evidences": [
+          "ATTORNEY'S BADGE: No one would believe I was a defense attorney if I didn't carry this.",
+          "CINDY'S AUTOPSY REPORT: Time of death: 7/31, 4PM - 5PM. Cause of death: loss of blood due to blunt trauma.",
+          "STATUE: A statue in the shape of \"The Thinker.\" It's rather heavy.",
+          "PASSPORT: The victim apparently arrived home from Paris on 7/30, the day before the murder.",
+          "BLACKOUT RECORD: Electricity to Ms. Stone's building was out from noon to 6PM on the day of the crime."
         ]
     },
     "Turnabout_Sisters": {
@@ -364,6 +371,16 @@
             "Phoenix: (Hey! Maya just threw something at me... What's this? \"When my sister couldn't find any contradictions in a witness's testimony she would bluff it and press the witness on every detail! The witness always slips up and says something wrong... It worked lots of times!\" Heh... I should have expected Maya would know some of her sister's tricks! Alright. Let's give this a try!)",
             "Judge: Something the matter?",
             "Phoenix: No, Your Honor. I'd like to begin my cross-examination."
+        ],
+        "evidences": [
+            "ATTORNEY'S BADGE: No one would believe I was a defense attorney if I didn't carry this.",
+            "MIA'S AUTOPSY REPORT: Time of death: 9/5 at 9:00 PM. Cause: single blunt force trauma. Death was instantaneous.",
+            "MAYA'S CELL PHONE: Holds a conversation between the Chief and Maya. (September 5, 9:27 AM. Maya: Mia! What's up? You haven't called in a while. Mia: Well, actually there's something I want you to hold on to for me. Maya: Again? What is it this time? Mia: It's... a clock. It's made to look like that statue, "The Thinker." And it tells you the time! Ah... I should probably tell you, the clock isn't talking right now. Maya: Huh? It's not working? That's lame! Mia: I had to take the clockwork out, sorry. I put some papers inside it instead. Maya: Papers? Is that the evidence, then? Mia: I'll leave that one up to your imagination. See you tonight at nine.)",
+            "GLASS SHARDS: The broken remains of a glass light stand. Broken beyond all recognition.",
+            "THE THINKER: The murder weapon. Looks like a statue, but it's actually a clock. Made by Larry Butz.",
+            "WIRETAP: Found in Miss May's hotel room.",
+            "RECEIPT: A department store receipt with letters written in blood on the back.",
+            "FLOOR PLANS: The murder scene, the Fey & Co. Law Offices."
         ]
     }
 }
