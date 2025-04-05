@@ -356,7 +356,7 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
     
     # Format evidence details for the prompt
     evidence_details = "\n".join([f"Evidence {i+1}: {e}" for i, e in enumerate(collected_evidences)])
-    print(scene)
+    # print(scene)
 
 
     if game_state == "Cross-Examination":
@@ -401,7 +401,7 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
                 * Keep navigating until the evidence that directly contradicts the statement is selected
             - Step 3: Use 'x' to present the contradicting evidence
                 * Only present if the evidence is currently selected and the contradiction is clear
-        * If you don’t find a contradiction or need more context:
+        * If you don't find a contradiction or need more context:
             - Use 'l' to press the witness for more details
             - Or use 'z' to move to the next statement
 
@@ -487,7 +487,7 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
         thought: 'Yes' is now selected. I'll confirm the choice.
 
         Stuck Situation Handling:
-        - If no progress has been made in the last 7 responses (check prev_responses)
+        - If no progress has been made in the last 3 responses (check prev_responses about whether scene and responses are the same.)
         - If the agent seems stuck in a loop or unable to advance
         - Use 'b' to break out of the loop
         - This helps the agent recover and move forward in the game
@@ -657,7 +657,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         "description": evidence_match.group(2).strip() if evidence_match else ""
     }
     ###------------ Extract Options ---------------###
-    print(response_text)
+    # print(response_text)
     # Default options structure
     options = {
         "choices": [],
@@ -690,10 +690,10 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
             }
         options["selected"] = decision_state["selected_text"]
 
-    print(options)
+    # print(options)
         
     # Extract Scene Description
-    scene_match = re.search(r"Scene:\s*(.+?)(?=\n|$)", response_text, re.DOTALL)
+    scene_match = re.search(r"Scene:\s*((?:.|\n)+?)(?=\n(?:Game State:|Dialog:|Evidence:|Options:|$))", response_text)
     scene = scene_match.group(1).strip() if scene_match else ""
 
     # -------------------- Memory Processing -------------------- #
@@ -922,7 +922,7 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
         "description": evidence_match.group(2).strip() if evidence_match else ""
     }
     
-    scene_match = re.search(r"Scene:\s*(.+?)(?=\n|$)", response, re.DOTALL)
+    scene_match = re.search(r"Scene:\s*((?:.|\n)+?)(?=\n(?:Game State:|Dialog:|Evidence:|Options:|move:|thought:|$))", response)
     scene = scene_match.group(1).strip() if scene_match else ""
     
     move_match = re.search(r"move:\s*(.+?)(?=\n|$)", response)

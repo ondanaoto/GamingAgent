@@ -63,7 +63,7 @@ def main():
                        choices=["text-only", "vision-text", "vision-only"],
                        help="modality used.")
     parser.add_argument("--thinking", type=str, default="False", help="Whether to use deep thinking.")
-    parser.add_argument("--episode_name", type=str, default="The First Turnabout", 
+    parser.add_argument("--episode_name", type=str, default="The_First_Turnabout", 
                        help="Name of the current episode being played.")
     parser.add_argument("--num_threads", type=int, default=1, help="Number of parallel threads to launch.")
     args = parser.parse_args()
@@ -210,8 +210,8 @@ def main():
             # Perform the chosen move
             perform_move(chosen_move)
             
-            # Update previous response with game state, move and thought
-            prev_response = f"game_state: {chosen_game_state}\nmove: {chosen_move}\nthought: {chosen_thought}"
+            # Update previous response with game state, move, thought and scene
+            prev_response = f"game_state: {chosen_game_state}\nmove: {chosen_move}\nthought: {chosen_thought}\nscene: {chosen_scene}"
 
             # Update short-term memory with the chosen response
             short_term_memory_worker(
