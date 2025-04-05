@@ -115,54 +115,59 @@ def vision_worker(system_prompt, api_provider, model_name,
     base64_image = encode_image(screenshot_path)
     
     prompt = (
-            "You are now playing Ace Attorney. Analyze the current scene and provide the following information:\n\n"
-            
-            "1. Game State Detection Rules:\n"
-            "   - Cross-Examination mode is indicated by ANY of these:\n"
-            "     * A blue bar in the upper right corner\n"
-            "     * Only green dialog text\n"
-            "     * Two or more white-text options appearing in the **middle** of the screen (e.g., 'Yes' and 'No')\n"
-            "     * EXACTLY three UI elements at the bottom-right corner: Options, Press, Present\n"
-            "     * An evidence window visible in the middle of the screen\n"
-            "   - If you see an evidence window, it is ALWAYS Cross-Examination mode\n"
-            "   - Conversation mode is indicated by:\n"
-            "     * EXACTLY two UI elements at the bottom-right corner: Options, Court Record\n"
-            "     * Dialog text can be any color (most commonly white, but also blue, red, etc.)\n"
-            "   - If none of the Cross-Examination indicators are present, it is Conversation mode\n\n"
-            
-            "2. Dialog Text Analysis:\n"
-            "   - Look at the bottom-left area where dialog appears\n"
-            "   - Note the color of the dialog text (green/white/blue/red)\n"
-            "   - Extract the speaker's name and their dialog\n"
-            "   - Format must be exactly: Dialog: NAME: dialog text\n\n"
-            
-            "3. Scene Analysis:\n"
-            "   - Describe any visible characters and their expressions/poses\n"
-            "   - Describe any other important visual elements or interactive UI components\n"
-            "   - Describe any options with blue background appearing in the **middle** of the screen\n"
-            "   - You MUST explicitly mention:\n"
-            "     * The color of the dialog text (green/white/blue/red)\n"
-            "     * Whether there is a blue bar in the upper right corner\n"
-            "     * The exact UI elements present at the bottom-right corner (Options, Press, Present for Cross-Examination or Options, Court Record for Conversation)\n"
-            "     * Whether there is an evidence window visible\n"
-            "     * If options appear in the middle of the screen:\n"
-            "       - List the text of each option in order from top to bottom\n"
-            "       - Identify which one is currently selected\n"
-            "       - Use the yellow or gold border around the option to determine selection\n"
-            "       - Do NOT assume the bottom option is selected by default — selection depends entirely on the visual highlight\n"
-            "     * If evidence window is visible:\n"
-            "       - Name of the currently selected evidence\n"
-            "       - Description of the evidence\n"
-            "       - Position in the evidence list (if visible)\n"
-            "       - Whether this is the evidence you intend to present\n\n"
-            
-            "Format your response EXACTLY as:\n"
-            "Game State: <'Cross-Examination' or 'Conversation'>\n"
-            "Dialog: NAME: dialog text\n"
-            "Options: option1, selected; option2, not selected; option3, not selected\n"
-            "Evidence: NAME: description\n"
-            "Scene: <detailed description including dialog color, options text (if exsisit), blue bar presence, UI elements (corresponding keys, like r Present/Court Record or x Present), evidence window status and contents, and other visual elements>"
-            )
+        "You are now playing Ace Attorney. Analyze the current scene and provide the following information:\n\n"
+        "Carefully analyze the game state. If any of the indicators are present, determine that it is Cross-Examination mode.\n\n"
+
+        "1. Game State Detection Rules:\n"
+        "   - Cross-Examination mode is indicated by ANY of these:\n"
+        "     * A blue bar in the upper right corner\n"
+        "     * Only green dialog text\n"
+        "     * Two or more white-text options appearing in the **middle** of the screen (e.g., 'Yes' and 'No')\n"
+        "     * EXACTLY three UI elements at the bottom-right corner: Options, Press, Present\n"
+        "     * An evidence window visible in the middle of the screen\n"
+        "   - If you see an evidence window, it is ALWAYS Cross-Examination mode\n"
+        "   - Conversation mode is indicated by:\n"
+        "     * EXACTLY two UI elements at the bottom-right corner: Options, Court Record\n"
+        "     * Dialog text can be any color (most commonly white, but also blue, red, etc.)\n"
+        "   - If none of the Cross-Examination indicators are present, it is Conversation mode\n\n"
+
+        "2. Dialog Text Analysis:\n"
+        "   - Look at the bottom-left area where dialog appears\n"
+        "   - Note the color of the dialog text (green/white/blue/red)\n"
+        "   - Extract the speaker's name and their dialog\n"
+        "   - Format must be exactly: Dialog: NAME: dialog text\n\n"
+
+        "3. Scene Analysis:\n"
+        "   - Describe any visible characters and their expressions/poses\n"
+        "   - Describe any other important visual elements or interactive UI components\n"
+        "   - Describe any options with blue background appearing in the **middle** of the screen\n"
+        "   - You MUST explicitly mention:\n"
+        "     * The color of the dialog text (green/white/blue/red)\n"
+        "     * Whether there is a blue bar in the upper right corner\n"
+        "     * The exact UI elements present at the bottom-right corner (Options, Press, Present for Cross-Examination or Options, Court Record for Conversation)\n"
+        "     * Whether there is an evidence window visible\n"
+        "     * If options appear in the middle of the screen:\n"
+        "       - List the text of each option in order from top to bottom\n"
+        "       - Identify which one is currently selected\n"
+        "       - Use the yellow or gold border around the option to determine selection\n"
+        "       - Do NOT assume the bottom option is selected by default — selection depends entirely on the visual highlight\n"
+        "     * If evidence window is visible:\n"
+        "       - Name of the currently selected evidence\n"
+        "       - Description of the evidence\n"
+        "       - Position in the evidence list (if visible)\n"
+        "       - Whether this is the evidence you intend to present\n\n"
+
+        "Format your response EXACTLY as:\n"
+        "Game State: <'Cross-Examination' or 'Conversation'>\n"
+        "Dialog: NAME: dialog text\n"
+        "Options: option1, selected; option2, not selected; option3, not selected\n"
+        "Evidence: NAME: description\n"
+        "Scene: <detailed description including dialog color, options text (if exist), blue bar presence, UI elements (corresponding keys, like r Present/Court Record or x Present), evidence window status and contents, and other visual elements>\n\n"
+        
+        "At the end of your Scene description, briefly summarize:\n"
+        "dialog text is <color>, evidence window is <open/closed>, options are <available/unavailable>"
+    )
+
 
 
     # print(f"Calling {model_name} API for vision analysis...")
@@ -385,6 +390,8 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
         {memory_context}
 
         Be patient. DO NOT rush to present evidence. Always wait until the **decisive contradiction** becomes clear.
+        You only have 7 chances to make a mistake.  
+        If you've already presented evidence but it wasn't successful, try going to the next statement or switching to a different piece of evidence.
 
         You may only present evidence if:
         - A clear and specific contradiction exists between the current statement and an item in the Court Record
@@ -415,6 +422,10 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
         - The evidence window will auto-close after presenting
         - Do NOT use `'x'` or `'r'` unless you are certain
         - If the evidence window is NOT open, NEVER use `'x'` to present
+
+        - Always loop through all Cross-Examination statements by using `'z'`.  
+        After reaching the final statement, the game will automatically return to the first one.  
+        This allows you to review all statements before taking action.
 
         Available moves:
         * `'l'`: Question the witness about their statement
@@ -666,7 +677,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         "description": evidence_match.group(2).strip() if evidence_match else ""
     }
     ###------------ Extract Options ---------------###
-    print(response_text)
+    # print(response_text)
     # Default options structure
     options = {
         "choices": [],
@@ -698,15 +709,18 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
                 "decision_timestamp": None
             }
         options["selected"] = decision_state["selected_text"]
-
-    print(options)
         
     # Extract Scene Description
-    scene_match = re.search(r"Scene:\s*(.+?)(?=\n|$)", response_text, re.DOTALL)
+    scene_match = re.search(r"Scene:\s*(.+?)(?:\n\w+:|$)", response_text, re.DOTALL)
     scene = scene_match.group(1).strip() if scene_match else ""
 
-    if "green" in scene:
+    if (
+        "dialog text is green" in scene 
+        or "evidence window is open" in scene 
+        or "options are available" in scene
+    ):
         game_state = "Cross-Examination"
+
 
     # -------------------- Memory Processing -------------------- #
     # Update long-term memory only
