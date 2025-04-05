@@ -713,13 +713,16 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     # Extract Scene Description
     scene_match = re.search(r"Scene:\s*(.+?)(?:\n\w+:|$)", response_text, re.DOTALL)
     scene = scene_match.group(1).strip() if scene_match else ""
-
+    print(game_state)
     if (
         "dialog text is green" in scene 
         or "evidence window is open" in scene 
         or "options are available" in scene
     ):
         game_state = "Cross-Examination"
+    else: 
+        game_state = "Conversation"
+    print(game_state)
 
 
     # -------------------- Memory Processing -------------------- #
