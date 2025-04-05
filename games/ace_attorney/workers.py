@@ -36,7 +36,7 @@ def log_move_and_thought(move, thought, latency):
     log_entry = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Move: {move}, Thought: {thought}, Latency: {latency:.2f} sec\n"
     
     try:
-        with open(log_file_path, "a") as log_file:
+        with open(log_file_path, "a", encoding='utf-8') as log_file:
             log_file.write(log_entry)
     except Exception as e:
         print(f"[ERROR] Failed to write log entry: {e}")
@@ -117,12 +117,12 @@ def vision_worker(system_prompt, api_provider, model_name,
             
             "1. Game State Detection Rules:\n"
             "   - Cross-Examination mode is indicated by ANY of these:\n"
+            "     * If you see an evidence window(A evidence description is visible), it is ALWAYS Cross-Examination mode\n"
             "     * A blue bar in the upper right corner\n"
             "     * Only green dialog text\n"
             "     * Two or more white-text options appearing in the **middle** of the screen (e.g., 'Yes' and 'No')\n"
             "     * EXACTLY three UI elements at the bottom-right corner: Options, Press, Present\n"
             "     * An evidence window visible in the middle of the screen\n"
-            "   - If you see an evidence window, it is ALWAYS Cross-Examination mode\n"
             "   - Conversation mode is indicated by:\n"
             "     * EXACTLY two UI elements at the bottom-right corner: Options, Court Record\n"
             "     * Dialog text can be any color (most commonly white, but also blue, red, etc.)\n"
@@ -207,7 +207,7 @@ def long_term_memory_worker(system_prompt, api_provider, model_name,
 
     # Load existing dialog history or initialize new structure
     if os.path.exists(json_file):
-        with open(json_file, 'r') as f:
+        with open(json_file, 'r', encoding='utf-8') as f:
             dialog_history = json.load(f)
     else:
         dialog_history = {
@@ -230,8 +230,8 @@ def long_term_memory_worker(system_prompt, api_provider, model_name,
             dialog_history[episode_name]["evidences"].append(evidence_entry)
 
     # Save the updated dialog history
-    with open(json_file, 'w') as f:
-        json.dump(dialog_history, f, indent=2)
+    with open(json_file, 'w', encoding='utf-8') as f:
+        json.dump(dialog_history, f, indent=2, ensure_ascii=False)
 
     return json_file
 
@@ -297,14 +297,14 @@ def memory_retrieval_worker(system_prompt, api_provider, model_name,
     """
     # Load background conversation context
     background_file = "games/ace_attorney/ace_attorney_1.json"
-    with open(background_file, 'r') as f:
+    with open(background_file, 'r', encoding='utf-8') as f:
         background_data = json.load(f)
     background_context = background_data[episode_name]["Case_Transcript"]
 
     # Load current episode memory
     memory_file = os.path.join("cache", "ace_attorney", "dialog_history", f"{episode_name.lower().replace(' ', '_')}.json")
     if os.path.exists(memory_file):
-        with open(memory_file, 'r') as f:
+        with open(memory_file, 'r', encoding='utf-8') as f:
             memory_data = json.load(f)
         current_episode = memory_data[episode_name]
         cross_examination_context = current_episode["Case_Transcript"]
@@ -487,7 +487,7 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
         thought: 'Yes' is now selected. I'll confirm the choice.
 
         Stuck Situation Handling:
-        - If no progress has been made in the last 3 responses (check prev_responses about whether scene and responses are the same.)
+        - If no progress has been made in the last 5 responses with cross-examination game state (check prev_responses about whether they are the same.)
         - If the agent seems stuck in a loop or unable to advance
         - Use 'b' to break out of the loop
         - This helps the agent recover and move forward in the game
@@ -656,8 +656,8 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         "name": evidence_match.group(1) if evidence_match else "",
         "description": evidence_match.group(2).strip() if evidence_match else ""
     }
+    
     ###------------ Extract Options ---------------###
-    # print(response_text)
     # Default options structure
     options = {
         "choices": [],
@@ -689,12 +689,13 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
                 "decision_timestamp": None
             }
         options["selected"] = decision_state["selected_text"]
-
-    # print(options)
         
     # Extract Scene Description
-    scene_match = re.search(r"Scene:\s*((?:.|\n)+?)(?=\n(?:Game State:|Dialog:|Evidence:|Options:|$))", response_text)
+    print("\n=== Vision Worker Output ===")
+    print(response_text)
+    scene_match = re.search(r"Scene:\s*((?:.|\n)+?)(?=\n(?:Game State:|Dialog:|Evidence:|Options:|$)|$)", response_text, re.DOTALL)
     scene = scene_match.group(1).strip() if scene_match else ""
+    print("="*50 + "\n")
 
     # -------------------- Memory Processing -------------------- #
     # Update long-term memory only
@@ -753,8 +754,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         thinking=thinking
     )
 
-
-        # In your reasoning loop, track moves:
+    # In your reasoning loop, track moves:
     if decision_state:
         if reasoning_result["move"] == "down" and decision_state["has_options"]:
             decision_state["down_count"] += 1
@@ -766,7 +766,6 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
             decision_state["decision_timestamp"] = time.time()
             print(f"[Decision Made] Selected option: '{decision_state['selected_text']}' at index {decision_state['selection_index']} (via {decision_state['down_count']} down moves)")
 
-
     parsed_result = {
         "game_state": game_state,
         "dialog": dialog,
@@ -776,12 +775,133 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         "memory_context": complete_memory,
         "move": reasoning_result["move"],
         "thought": reasoning_result["thought"],
-        "options":options,
+        "options": options,
         "decision_state": decision_state
     }
 
-
     return parsed_result
+
+def check_skip_conversation(dialog, episode_name):
+    """
+    Checks if the current dialog exists as a key in ace_attorney_1_skip_conversations.json.
+    If found, returns the list of dialogs to skip through.
+    Otherwise returns None.
+    
+    Args:
+        dialog (dict or str): Dialog to check. Can be either a dict with 'name' and 'text' keys,
+                            or a string in "name: text" format
+        episode_name (str): Name of the current episode
+    """
+    try:
+        with open("games/ace_attorney/ace_attorney_1_skip_conversations.json", 'r', encoding='utf-8') as f:
+            skip_conversations = json.load(f)
+        
+        # Handle both dictionary and string formats for dialog
+        if isinstance(dialog, dict) and 'name' in dialog and 'text' in dialog:
+            dialog_entry = f"{dialog['name']}: {dialog['text']}"
+        else:
+            dialog_entry = str(dialog)
+        
+        print("\n=== Checking Skip Dialog ===")
+        print(f"Current Dialog: {dialog_entry}")
+        print(f"Episode: {episode_name}")
+        
+        # Check if dialog matches any key in the skip conversations
+        episode_convs = skip_conversations.get(episode_name, {})
+        if dialog_entry in episode_convs:
+            print(f">>> MATCH FOUND! Dialog matches key in skip conversations")
+            return episode_convs[dialog_entry]
+            
+        print("No matching key found in skip conversations")
+        return None
+    except Exception as e:
+        print(f"[ERROR] Failed to check skip conversation: {e}")
+        return None
+
+def handle_skip_conversation(system_prompt, api_provider, model_name, prev_response, thinking, modality, episode_name, dialog, skip_dialogs):
+    """
+    Handles skipping through a known conversation sequence.
+    Updates long-term memory and performs the necessary moves.
+    
+    Args:
+        dialog (dict): Current dialog that triggered the skip
+        skip_dialogs (list): List of dialogs to skip through
+    """
+    if not skip_dialogs:
+        return None
+        
+    print("\n" + "="*70)
+    print("=== Starting Skip Conversation ===")
+    print(f"├── Episode: {episode_name}")
+    print(f"├── Number of dialogs to skip: {len(skip_dialogs) - 1}")
+    print(f"└── Dialog sequence:")
+    for i, skip_dialog in enumerate(skip_dialogs):
+        print(f"    {i+1}. {skip_dialog}")
+    print("="*70 + "\n")
+        
+    # Update long-term memory with all dialogs in the sequence
+    for skip_dialog in skip_dialogs:
+        # Extract name and text from the skip dialog
+        name_text = skip_dialog.split(": ", 1)
+        if len(name_text) == 2:
+            name, text = name_text
+            dialog_entry = {"name": name, "text": text}
+            long_term_memory_worker(
+                system_prompt,
+                api_provider,
+                model_name,
+                prev_response,
+                thinking,
+                modality,
+                episode_name,
+                dialog=dialog_entry
+            )
+    
+    # Perform 'z' moves for each dialog in the sequence (except the first one)
+    for i in range(len(skip_dialogs) - 1):
+        print(f"[Skip] Performing 'z' move {i+1} of {len(skip_dialogs) - 1}")
+        perform_move("z")
+        time.sleep(5)  # Reduced delay between moves since we're handling it centrally
+        
+        # Check if we've reached the end statement
+        if check_end_statement(dialog, episode_name):
+            print("\n=== End Statement Reached During Skip ===")
+            break
+    
+    print("\n=== Skip Conversation Complete ===")
+    print("="*70 + "\n")
+    
+    # Return parsed result with continue conversation
+    return {
+        "game_state": "Conversation",
+        "dialog": dialog,
+        "evidence": {},
+        "scene": "",
+        "move": "z",
+        "thought": "continue conversation"
+    }
+
+def check_end_statement(dialog, episode_name):
+    """
+    Checks if the current dialog matches the end statement for the episode.
+    Returns True if it's the end statement, False otherwise.
+    """
+    try:
+        with open("games/ace_attorney/ace_attorney_1_skip_conversations.json", 'r', encoding='utf-8') as f:
+            skip_conversations = json.load(f)
+        
+        # Handle both dictionary and string formats for dialog
+        if isinstance(dialog, dict) and 'name' in dialog and 'text' in dialog:
+            dialog_entry = f"{dialog['name']}: {dialog['text']}"
+        else:
+            dialog_entry = str(dialog)
+            
+        end_statement = skip_conversations.get(episode_name, {}).get("end_statement", "")
+        
+        return dialog_entry == end_statement
+    except Exception as e:
+        print(f"[ERROR] Failed to check end statement: {e}")
+        return False
 
 def vision_only_reasoning_worker(system_prompt, api_provider, model_name, 
     prev_response="", 
@@ -922,7 +1042,7 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
         "description": evidence_match.group(2).strip() if evidence_match else ""
     }
     
-    scene_match = re.search(r"Scene:\s*((?:.|\n)+?)(?=\n(?:Game State:|Dialog:|Evidence:|Options:|move:|thought:|$))", response)
+    scene_match = re.search(r"Scene:\s*((?:.|\n)+?)(?=\n(?:Game State:|Dialog:|Evidence:|Options:|move:|thought:|$)|$)", response, re.DOTALL)
     scene = scene_match.group(1).strip() if scene_match else ""
     
     move_match = re.search(r"move:\s*(.+?)(?=\n|$)", response)
@@ -971,15 +1091,128 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
 def vision_only_ace_attorney_worker(system_prompt, api_provider, model_name, 
     prev_response="", 
     thinking=True, 
-    modality="vision-only",
-    episode_name="The First Turnabout"
+    modality="vision-text",
+    episode_name="The First Turnabout",
+    decision_state=None,
     ):
     """
-    Worker function that uses vision-only modality to analyze the game state and make decisions.
-    Combines vision analysis, reasoning, and memory management in a single step.
+    1) Captures a screenshot of the current game state.
+    2) Analyzes the scene using vision worker.
+    3) Makes decisions based on the scene analysis.
+    4) Maintains dialog history for the current episode.
+    5) Makes decisions about game moves.
+    
+    Args:
+        episode_name (str): Name of the current episode (default: "The First Turnabout")
     """
-    # First get memory context
-    memory_context = memory_retrieval_worker(
+    assert modality in ["text-only", "vision-text"], f"modality {modality} is not supported."
+
+    # -------------------- Vision Processing -------------------- #
+    # First, analyze the current game state using vision
+    vision_result = vision_worker(
+        system_prompt,
+        api_provider,
+        model_name,
+        prev_response,
+        thinking,
+        modality="vision-text"
+    )
+
+    if "error" in vision_result:
+        return vision_result
+
+    # Extract the formatted outputs using regex
+    response_text = vision_result["response"]
+    
+    # Extract Game State
+    game_state_match = re.search(r"Game State:\s*(Cross-Examination|Conversation|Evidence)", response_text)
+    game_state = game_state_match.group(1) if game_state_match else "Unknown"
+    
+    # Extract Dialog (with NAME: text format)
+    dialog_match = re.search(r"Dialog:\s*([^:\n]+):\s*(.+?)(?=\n|$)", response_text)
+    dialog = {
+        "name": dialog_match.group(1) if dialog_match else "",
+        "text": dialog_match.group(2).strip() if dialog_match else ""
+    }
+    
+    # Extract Evidence
+    evidence_match = re.search(r"Evidence:\s*([^:\n]+):\s*(.+?)(?=\n|$)", response_text)
+    evidence = {
+        "name": evidence_match.group(1) if evidence_match else "",
+        "description": evidence_match.group(2).strip() if evidence_match else ""
+    }
+    
+    ###------------ Extract Options ---------------###
+    # Default options structure
+    options = {
+        "choices": [],
+        "selected": ""
+    }
+
+    options_match = re.search(r"Options:\s*(.+)", response_text)
+    if options_match:
+        raw_options = options_match.group(1).strip()
+        if raw_options.lower() != "none":
+            # Extract individual option entries using comma-separated pairs
+            option_entries = [opt.strip() for opt in raw_options.split(';') if opt.strip()]
+            for entry in option_entries:
+                match = re.match(r"(.+?),\s*(selected|not selected)", entry)
+                if match:
+                    text, state = match.groups()
+                    options["choices"].append(text.strip())
+                    if state == "selected":
+                        options["selected"] = text.strip()
+
+    if options["choices"]:
+        game_state = "Cross-Examination"
+        if decision_state is None:
+            decision_state = {
+                "has_options": True,
+                "down_count": 0,
+                "selection_index": 0,
+                "selected_text": options["choices"][0],  # default to first option
+                "decision_timestamp": None
+            }
+        options["selected"] = decision_state["selected_text"]
+        
+    # Extract Scene Description
+    print("\n=== Vision Worker Output ===")
+    print(response_text)
+    scene_match = re.search(r"Scene:\s*((?:.|\n)+?)(?=\n(?:Game State:|Dialog:|Evidence:|Options:|$)|$)", response_text, re.DOTALL)
+    scene = scene_match.group(1).strip() if scene_match else ""
+    print("="*50 + "\n")
+
+    # -------------------- Memory Processing -------------------- #
+    # Update long-term memory only
+    if game_state == "Evidence":
+        # If in Evidence mode, update evidence instead of dialog
+        if evidence["name"] and evidence["description"]:
+            evidence_file = long_term_memory_worker(
+                system_prompt,
+                api_provider,
+                model_name,
+                prev_response,
+                thinking,
+                modality,
+                episode_name,
+                evidence=evidence
+            )
+    else:
+        # If in Conversation or Cross-Examination mode, update dialog
+        if dialog["name"] and dialog["text"]:
+            dialog_file = long_term_memory_worker(
+                system_prompt,
+                api_provider,
+                model_name,
+                prev_response,
+                thinking,
+                modality,
+                episode_name,
+                dialog=dialog
+            )
+
+    # Then, retrieve and compose complete memory context
+    complete_memory = memory_retrieval_worker(
         system_prompt,
         api_provider,
         model_name,
@@ -989,44 +1222,48 @@ def vision_only_ace_attorney_worker(system_prompt, api_provider, model_name,
         episode_name
     )
 
-    # Then use vision-only reasoning worker
-    result = vision_only_reasoning_worker(
+    c_statement = f"{dialog}"
+    # -------------------- Reasoning -------------------- #
+    # Make decisions about game moves
+    reasoning_result = reasoning_worker(
+        options,
         system_prompt,
         api_provider,
         model_name,
-        prev_response,
-        thinking,
-        modality,
-        episode_name
+        game_state,
+        c_statement,
+        scene,
+        complete_memory,
+        base64_image=encode_image(vision_result["screenshot_path"]),
+        modality='text-only',
+        thinking=thinking
     )
 
-    # Update long-term memory if needed
-    if result and "game_state" in result:
-        if result["game_state"] == "Evidence":
-            if result["evidence"] and result["evidence"]["name"] and result["evidence"]["description"]:
-                long_term_memory_worker(
-                    system_prompt,
-                    api_provider,
-                    model_name,
-                    prev_response,
-                    thinking,
-                    modality,
-                    episode_name,
-                    evidence=result["evidence"]
-                )
-        else:
-            if result["dialog"] and result["dialog"]["name"] and result["dialog"]["text"]:
-                long_term_memory_worker(
-                    system_prompt,
-                    api_provider,
-                    model_name,
-                    prev_response,
-                    thinking,
-                    modality,
-                    episode_name,
-                    dialog=result["dialog"]
-                )
+    # In your reasoning loop, track moves:
+    if decision_state:
+        if reasoning_result["move"] == "down" and decision_state["has_options"]:
+            decision_state["down_count"] += 1
+            i = min(decision_state["down_count"], len(options["choices"]) - 1)
+            decision_state["selection_index"] = i
+            decision_state["selected_text"] = options["choices"][i]
 
-    return result
+        if reasoning_result["move"] == "z" and decision_state["has_options"]:
+            decision_state["decision_timestamp"] = time.time()
+            print(f"[Decision Made] Selected option: '{decision_state['selected_text']}' at index {decision_state['selection_index']} (via {decision_state['down_count']} down moves)")
+
+    parsed_result = {
+        "game_state": game_state,
+        "dialog": dialog,
+        "evidence": evidence,
+        "scene": scene,
+        "screenshot_path": vision_result["screenshot_path"],
+        "memory_context": complete_memory,
+        "move": reasoning_result["move"],
+        "thought": reasoning_result["thought"],
+        "options": options,
+        "decision_state": decision_state
+    }
+
+    return parsed_result
 
 # return move_thought_list

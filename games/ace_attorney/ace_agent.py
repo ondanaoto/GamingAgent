@@ -4,6 +4,8 @@ import concurrent.futures
 import argparse
 from collections import deque, Counter
 import shutil
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import os
 import json
@@ -18,7 +20,10 @@ from games.ace_attorney.workers import (
     vision_only_reasoning_worker,
     long_term_memory_worker,
     memory_retrieval_worker,
-    vision_only_ace_attorney_worker
+    vision_only_ace_attorney_worker,
+    check_end_statement,
+    check_skip_conversation,
+    handle_skip_conversation
 )
 from tools.utils import str2bool, encode_image, log_output, get_annotate_img, capture_game_window, log_game_event
 from collections import Counter
@@ -70,23 +75,23 @@ def main():
 
     prev_response = ""
 
-    # Delete existing cache directory if it exists and create a new one
-    if os.path.exists(CACHE_DIR):
-        shutil.rmtree(CACHE_DIR)
-    os.makedirs(CACHE_DIR, exist_ok=True)
+    # # Delete existing cache directory if it exists and create a new one
+    # if os.path.exists(CACHE_DIR):
+    #     shutil.rmtree(CACHE_DIR)
+    # os.makedirs(CACHE_DIR, exist_ok=True)
 
     thinking_bool = str2bool(args.thinking)
 
-    print("--------------------------------Start Evidence Worker--------------------------------")
-    evidence_result = ace_evidence_worker(
-        system_prompt,
-        args.api_provider,
-        args.model_name,
-        prev_response,
-        thinking=thinking_bool,
-        modality=args.modality,
-        episode_name = args.episode_name
-    )
+    # print("--------------------------------Start Evidence Worker--------------------------------")
+    # evidence_result = ace_evidence_worker(
+    #     system_prompt,
+    #     args.api_provider,
+    #     args.model_name,
+    #     prev_response,
+    #     thinking=thinking_bool,
+    #     modality=args.modality,
+    #     episode_name = args.episode_name
+    # )
     decision_state = None
 
     try:
@@ -123,6 +128,35 @@ def main():
                 concurrent.futures.wait(futures)
                 results = [f.result() for f in futures]
             
+            # Check for skip conversation in the first result's dialog
+            if results and results[0] and "dialog" in results[0]:
+                dialog = results[0]["dialog"]
+                skip_dialogs = check_skip_conversation(dialog, args.episode_name)
+                if skip_dialogs:
+                    print("\n" + "="*70)
+                    print("=== Skip Conversation Detected ===")
+                    print(f"├── Episode: {args.episode_name}")
+                    print(f"├── Number of dialogs to skip: {len(skip_dialogs)}")
+                    print("└── Starting skip sequence...")
+                    print("="*70 + "\n")
+                    
+                    # Handle the skip conversation
+                    skip_result = handle_skip_conversation(
+                        system_prompt,
+                        args.api_provider,
+                        args.model_name,
+                        prev_response,
+                        thinking_bool,
+                        args.modality,
+                        args.episode_name,
+                        dialog,
+                        skip_dialogs
+                    )
+                    
+                    if skip_result:
+                        # Replace all results with the skip result
+                        results = [skip_result]
+            
             print("\n" + "="*70)
             print("=== Analysis Results ===")
             print("="*70)
@@ -133,8 +167,11 @@ def main():
                     print(f"├── Move: {result['move'].strip().lower()}")
                     print(f"├── Thought Process:")
                     print(f"│   ├── Primary Reasoning: {result['thought']}")
-                    if "dialog" in result and result["dialog"]:
-                        print(f"│   ├── Dialog Context: {result['dialog']['name']}: {result['dialog']['text']}")
+                    if "dialog" in result:
+                        if isinstance(result['dialog'], dict) and 'name' in result['dialog'] and 'text' in result['dialog']:
+                            print(f"│   ├── Dialog Context: {result['dialog']['name']}: {result['dialog']['text']}")
+                        else:
+                            print(f"│   ├── Dialog Context: {result['dialog']}")
                     if "evidence" in result and result["evidence"]:
                         print(f"│   ├── Evidence Context: {result['evidence']['name']}: {result['evidence']['description']}")
                     if "scene" in result and result["scene"]:
@@ -176,7 +213,10 @@ def main():
                 for idx in move_indices:
                     print(f"│   │   ├── Thought: {thoughts[idx]}")
                     if dialogs[idx]:
-                        print(f"│   │   ├── Dialog: {dialogs[idx]['name']}: {dialogs[idx]['text']}")
+                        if isinstance(dialogs[idx], dict) and 'name' in dialogs[idx] and 'text' in dialogs[idx]:
+                            print(f"│   │   ├── Dialog: {dialogs[idx]['name']}: {dialogs[idx]['text']}")
+                        else:
+                            print(f"│   │   ├── Dialog: {dialogs[idx]}")
                     if evidences[idx]:
                         print(f"│   │   ├── Evidence: {evidences[idx]['name']}: {evidences[idx]['description']}")
                     print(f"│   │   └── Scene: {scenes[idx][:150]}...")
@@ -197,7 +237,10 @@ def main():
             print(f"├── Decision Reasoning:")
             print(f"│   ├── Primary Thought: {chosen_thought}")
             if chosen_dialog:
-                print(f"│   ├── Dialog Context: {chosen_dialog['name']}: {chosen_dialog['text']}")
+                if isinstance(chosen_dialog, dict) and 'name' in chosen_dialog and 'text' in chosen_dialog:
+                    print(f"│   ├── Dialog Context: {chosen_dialog['name']}: {chosen_dialog['text']}")
+                else:
+                    print(f"│   ├── Dialog Context: {chosen_dialog}")
             if chosen_evidence:
                 print(f"│   ├── Evidence Context: {chosen_evidence['name']}: {chosen_evidence['description']}")
             print(f"│   └── Scene Context: {chosen_scene[:200]}...")
@@ -210,8 +253,14 @@ def main():
             # Perform the chosen move
             perform_move(chosen_move)
             
+            # Check if we've reached the end statement
+            if check_end_statement(chosen_dialog, args.episode_name):
+                print("\n=== End Statement Reached ===")
+                print(f"Ending episode: {args.episode_name}")
+                break
+            
             # Update previous response with game state, move, thought and scene
-            prev_response = f"game_state: {chosen_game_state}\nmove: {chosen_move}\nthought: {chosen_thought}\nscene: {chosen_scene}"
+            prev_response = f"game_state: {chosen_game_state}\nmove: {chosen_move}\nthought: {chosen_thought}"
 
             # Update short-term memory with the chosen response
             short_term_memory_worker(
@@ -225,13 +274,12 @@ def main():
             )
 
             if chosen_move == "z" and decision_state and decision_state.get("has_options"):
-                decision_state = None  # 👈 RESET after confirming choice
+                decision_state = None  # Reset after confirming choice
             else:
                 # Keep the state if returned by worker
                 for result in results:
                     if "decision_state" in result:
                         decision_state = result["decision_state"]
-
 
             elapsed_time = time.time() - start_time
             time.sleep(4)
