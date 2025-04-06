@@ -186,5 +186,52 @@
         "Judge: And with that... This court is adjourned."
       ],
       "end_statement": "Phoenix: That day..."
+    },
+    "Turnabout_Sisters_part2": {
+      "Phoenix: Can you be a little more detailed about that?": [
+        "Phoenix: I think it's worth knowing exactly what happened.",
+        "White: Of course! Comprende! I understand!",
+        "White: The victim was attacked, by you, and ran to the left.",
+        "White: You gave chase, and struck her down!",
+        "Edgeworth: Are you sure?",
+        "White: As you know, I am always abso-posi-lutely",
+        "Judge: Perhaps you could change your testimony to reflect this new detail."
+      ],
+      "Phoenix: Mr. White, you've dug your own grave!":[
+        "White: What is this!?",
+        "Phoenix: You said the victim ran to the \"left.\"",
+        "Phoenix: But that directly contradicts Miss May's testimony!",
+        "Phoenix: She clearly stated that the victim ran \"right\"!",
+        "White: ...!",
+        "White: Oh hoh hoh. It is simple. You have misheard her.",
+        "Phoenix: I think not.",
+        "Phoenix: Look at the floor plans...",
+        "Phoenix: The killer was here.",
+        "Phoenix: And the victim, here.",
+        "Phoenix: If the victim ran to the left, as you claim she did...",
+        "Phoenix: She would have been running directly away from the door!",
+        "Phoenix: She would have been running into a dead end!",
+        "Phoenix: Don't you find that odd?",
+        "White: !",
+        "White: Very strange...",
+        "White: I did see her run to the left... I did.",
+        "Maya: Phoenix... look at his face. I don't think he's lying about this one.",
+        "Phoenix: True.",
+        "Phoenix: (Maybe he really did see the victim run left...?)",
+        "Phoenix: (So he did witness the killing...?)",
+        "Phoenix: (Wait a second!)",
+        "Judge: Mr. Wright?",
+        "Phoenix: Yes, Your Honor?",
+        "Judge: Miss May says \"right,\" and Mr. White says \"left.\"",
+        "Judge: Can you explain this contradiction to the court?",
+        "Phoenix: As Miss May has stated, Mia ran to the right after she was attacked.",
+        "White: What is this? I am not fashioning fabrications, I assure you!",
+        "White: That lady ran to the left! I am sure of it!",
+        "Phoenix: Then there can be only one explanation.",
+        "Edgeworth: Eh...? And that is?",
+        "Phoenix: Obviously, the witness was not viewing the crime from the hotel!",
+        "Judge: Mr. Wright! What do you mean?",
+        "Edgeworth: Yes, what do you mean, he was not \"viewing the crime from the hotel\"!?"],
+      "end_statement": "Phoenix: In the law offices of Fey & Co., of course!"
     }
   }
