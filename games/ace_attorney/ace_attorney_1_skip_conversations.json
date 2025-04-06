@@ -154,7 +154,17 @@
         "Mia: Think through it!",
         "Mia: Ask yourself, \"Why was the clock three hours slow?\"",
         "Mia: Figure out the reason, and you'll have your proof!",
-        "Mia: Right, Wright?"
+        "Mia: Right, Wright?",
+        "Mia: Can you think of a reason as to why the clock would be three hours slow?",
+        "Phoenix: ...",
+        "Phoenix: Wait!",
+        "Phoenix: Maybe I can prove it!",
+        "Mia: You must have evidence somewhere that can prove it, Wright!",
+        "Mia: Find it and let them have it!",
+        "Judge: You say the clock was already running slow on the day of the murder...",
+        "Judge: Have you found evidence to support this claim?",
+        "Phoenix: Of course.",
+        "Phoenix: There is a piece of evidence in the Court Record that can prove my claim beyond a doubt!"
       ],
       "Phoenix: As we all know, the time difference between here and Paris is nine hours!":[
         "Phoenix: When it's 4:00 PM here, it's 1:00 AM the next day there.",

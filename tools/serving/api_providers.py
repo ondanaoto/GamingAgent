@@ -158,56 +158,66 @@ def anthropic_multiimage_completion(system_prompt, model_name, prompt, list_cont
     
     return generated_str
 
+import httpx
+
+_original_headers_init = httpx.Headers.__init__
+
+def safe_headers_init(self, headers=None, encoding=None):
+    # Convert dict values to ASCII
+    if isinstance(headers, dict):
+        headers = {
+            k: (v.encode('ascii', 'ignore').decode() if isinstance(v, str) else v)
+            for k, v in headers.items()
+        }
+    elif isinstance(headers, list):
+        # Convert list of tuples: [(k, v), ...]
+        headers = [
+            (k, v.encode('ascii', 'ignore').decode() if isinstance(v, str) else v)
+            for k, v in headers
+        ]
+    _original_headers_init(self, headers=headers, encoding=encoding)
+
+# Apply the patch
+httpx.Headers.__init__ = safe_headers_init
+
+
 def openai_completion(system_prompt, model_name, base64_image, prompt, temperature=0):
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    # Force-clean headers to prevent UnicodeEncodeError
+    client._client._headers.update({
+        k: (v.encode('ascii', 'ignore').decode() if isinstance(v, str) else v)
+        for k, v in client._client._headers.items()
+    })
+
     base64_image = None if "o3-mini" in model_name else base64_image
     if base64_image is None:
         messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": prompt
-                    },
-                ],
-            }
+            {"role": "user", "content": [{"type": "text", "text": prompt}]}
         ]
     else:
         messages = [
             {
                 "role": "user",
                 "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{base64_image}"
-                        },
-                    },
-                    {
-                        "type": "text",
-                        "text": prompt
-                    },
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}},
+                    {"type": "text", "text": prompt},
                 ],
             }
         ]
 
-    token_param = "max_completion_tokens" if "o3-mini" in model_name else "max_tokens"
-    # Prepare request parameters dynamically
+    token_param = "max_completion_tokens" if "o1" in model_name else "max_tokens"
     request_params = {
         "model": model_name,
         "messages": messages,
-        token_param: 4096
+        token_param: 4096,
     }
-    
-    if "o3-mini" not in model_name:  # Assuming o3-mini doesn't support 'temperature'
+
+    if "o1" not in model_name:
         request_params["temperature"] = temperature
 
     response = client.chat.completions.create(**request_params)
-
-    generated_str = response.choices[0].message.content
-     
-    return generated_str
+    return response.choices[0].message.content
 
 def openai_text_completion(system_prompt, model_name, prompt):
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
