@@ -10,6 +10,8 @@ import json
 
 CACHE_DIR = "cache/ace_attorney"
 
+
+
 def perform_move(move):
     """
     Directly performs the move using keyboard input without key mapping.
@@ -55,15 +57,15 @@ def vision_evidence_worker(system_prompt, api_provider, model_name, modality, th
     
     # Construct prompt for LLM
     prompt = (
-        "You are now playing Ace Attorney. Analyze the current scene and provide the following information:\n\n"
-        "Look at the evidence presentation window\n"
-        "For the item, provide its name and description\n"
-
-        "Format your response EXACTLY as:\n"
-        "Game State: <'Evidence'>\n"
-        "Dialog: None\n"
-        "Evidence: NAME: description\n"
-        "Scene: <detailed description includes other visual elements>"
+        "You are analyzing the evidence screen in Phoenix Wright: Ace Attorney.\n\n"
+        "Describe ONLY the visual appearance and details of the evidence currently displayed.\n"
+        "Do NOT restate the evidence name or text description from the Court Record.\n\n"
+        "Focus on things like:\n"
+        "- Shape, size, material, color\n"
+        "- Any writing, symbols, damage, or special features\n"
+        "- Context clues that might indicate how the item is used or related to the case\n\n"
+        "Output format:\n"
+        "Evidence Description: <your detailed visual description here>"
     )
 
     # print(f"Calling {model_name} API for vision analysis...")
@@ -114,15 +116,16 @@ def vision_worker(system_prompt, api_provider, model_name,
     
     prompt = (
             "You are now playing Ace Attorney. Analyze the current scene and provide the following information:\n\n"
+            "Carefully analyze the game state. If any of the indicators are present, determine that it is Cross-Examination mode.\n\n"
             
             "1. Game State Detection Rules:\n"
             "   - Cross-Examination mode is indicated by ANY of these:\n"
-            "     * If you see an evidence window(A evidence description is visible), it is ALWAYS Cross-Examination mode\n"
             "     * A blue bar in the upper right corner\n"
             "     * Only green dialog text\n"
             "     * Two or more white-text options appearing in the **middle** of the screen (e.g., 'Yes' and 'No')\n"
             "     * EXACTLY three UI elements at the bottom-right corner: Options, Press, Present\n"
             "     * An evidence window visible in the middle of the screen\n"
+            "   - If you see an evidence window, it is ALWAYS Cross-Examination mode\n"
             "   - Conversation mode is indicated by:\n"
             "     * EXACTLY two UI elements at the bottom-right corner: Options, Court Record\n"
             "     * Dialog text can be any color (most commonly white, but also blue, red, etc.)\n"
@@ -160,7 +163,10 @@ def vision_worker(system_prompt, api_provider, model_name,
             "Options: option1, selected; option2, not selected; option3, not selected\n"
             "Evidence: NAME: description\n"
             "Scene: <detailed description including dialog color, options text (if exsisit), blue bar presence, UI elements (corresponding keys, like r Present/Court Record or x Present), evidence window status and contents, and other visual elements>"
+            #  "At the end of your Scene description, briefly summarize:\n"
+            # "dialog text is <color>, evidence window is <open/closed>, options are <available/unavailable>"
             )
+
 
 
     # print(f"Calling {model_name} API for vision analysis...")
@@ -224,8 +230,8 @@ def long_term_memory_worker(system_prompt, api_provider, model_name,
             dialog_history[episode_name]["Case_Transcript"].append(dialog_entry)
 
     # Update evidence if provided
-    if evidence and evidence["name"] and evidence["description"]:
-        evidence_entry = f"{evidence['name']}: {evidence['description']}"
+    if evidence and evidence["name"] and evidence["text"] and evidence["description"]:
+        evidence_entry = f"{evidence['name']}: {evidence['text']}. UI description: {evidence['description']}"
         if evidence_entry not in dialog_history[episode_name]["evidences"]:
             dialog_history[episode_name]["evidences"].append(evidence_entry)
 
@@ -383,6 +389,8 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
         {memory_context}
 
         Be patient. DO NOT rush to present evidence. Always wait until the **decisive contradiction** becomes clear.
+        You only have 7 chances to make a mistake.  
+        If you've already presented evidence but it wasn't successful, try going to the next statement or switching to a different piece of evidence.
 
         You may only present evidence if:
         - A clear and specific contradiction exists between the current statement and an item in the Court Record
@@ -413,6 +421,10 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
         - The evidence window will auto-close after presenting
         - Do NOT use `'x'` or `'r'` unless you are certain
         - If the evidence window is NOT open, NEVER use `'x'` to present
+
+        - Always loop through all Cross-Examination statements by using `'z'`.  
+        After reaching the final statement, the game will automatically return to the first one.  
+        This allows you to review all statements before taking action.
 
         Available moves:
         * `'l'`: Question the witness about their statement
@@ -537,20 +549,30 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
     episode_name="The First Turnabout",
     ):
     """
-    1) Loops through evidence items until all are seen or a duplicate appears.
-    2) Updates memory with newly seen evidence.
-    3) Returns after exiting Evidence view.
+    Iterates through known evidences using vision, stores full evidence with name, text, and vision-based description.
     """
+    background_file = "games/ace_attorney/ace_attorney_1.json"
+    with open(background_file, 'r') as f:
+        background_data = json.load(f)
+    evidence_lines = background_data[episode_name]["evidences"]
 
-    seen_names = set()
-    duplicate_found = False
+    PREDEFINED_EVIDENCES = {
+        item.split(":")[0].strip().upper(): ":".join(item.split(":")[1:]).strip()
+        for item in evidence_lines
+    }
 
-    # Start in evidence mode
+    print(PREDEFINED_EVIDENCES)
+
+    evidence_names = list(PREDEFINED_EVIDENCES.keys())
+    collected = []
+
+    time.sleep(1)
+    # Step 1: Open Court Record
     perform_move("r")
     time.sleep(1)
 
-    while not duplicate_found:
-        # Analyze the current evidence screen
+    for name in evidence_names:
+        # Get visual description via LLM
         vision_result = vision_evidence_worker(
             system_prompt,
             api_provider,
@@ -558,49 +580,46 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
             modality,
             thinking
         )
-        # print("[Vision Analysis Result]")
-        # print(vision_result)
-
         if "error" in vision_result:
             return vision_result
+        
+        # Parse the vision result: look for line starting with "Evidence Description:"
+        desc_match = re.search(r"Evidence Description:\s*(.+)", vision_result["response"])
+        visual_description = desc_match.group(1).strip() if desc_match else "No description found."
 
-        response_text = vision_result["response"]
-
-        # Extract evidence info
-        evidence_match = re.search(r"Evidence:\s*([^:\n]+):\s*(.+?)(?=\n|$)", response_text)
+        # Build evidence
         evidence = {
-            "name": evidence_match.group(1) if evidence_match else "",
-            "description": evidence_match.group(2).strip() if evidence_match else ""
+            "name": name,
+            "text": PREDEFINED_EVIDENCES[name],
+            "description": visual_description
         }
 
-        # Update memory if new
-        if evidence["name"] and evidence["description"]:
-            if evidence["name"] in seen_names:
-                duplicate_found = True
-                perform_move("b")
-                time.sleep(1)
-                print(f"[INFO] Duplicate evidence '{evidence['name']}' detected. Exiting evidence view.")
-                break
-            else:
-                seen_names.add(evidence["name"])
-                long_term_memory_worker(
-                    system_prompt,
-                    api_provider,
-                    model_name,
-                    prev_response,
-                    thinking,
-                    modality,
-                    episode_name,
-                    evidence=evidence
-                )
-                perform_move("right")
-                print(f"[INFO] New evidence collected: {evidence['name']}")
-                time.sleep(1)
-    # No need to run reasoning or return reasoning_result
+        # Save to memory
+        long_term_memory_worker(
+            system_prompt,
+            api_provider,
+            model_name,
+            prev_response,
+            thinking,
+            modality,
+            episode_name,
+            evidence=evidence
+        )
+
+        print(f"[INFO] Collected evidence: {evidence}")
+        collected.append(evidence)
+
+        # Move to next item
+        perform_move("right")
+        time.sleep(1)
+
+    # Step 2: Close Court Record
+    perform_move("b")
+    time.sleep(1)
+
     return {
         "game_state": "Evidence",
-        "evidence": evidence,
-        "seen": list(seen_names)
+        "collected_evidences": collected
     }
 
 def ace_attorney_worker(system_prompt, api_provider, model_name, 
@@ -658,6 +677,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     }
     
     ###------------ Extract Options ---------------###
+    print(response_text)
     # Default options structure
     options = {
         "choices": [],
@@ -696,6 +716,21 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     scene_match = re.search(r"Scene:\s*((?:.|\n)+?)(?=\n(?:Game State:|Dialog:|Evidence:|Options:|$)|$)", response_text, re.DOTALL)
     scene = scene_match.group(1).strip() if scene_match else ""
     print("="*50 + "\n")
+
+
+    # last_line = response_text.strip().split('\n')[-1]
+    # print(game_state)
+    # print(last_line)
+    # # Check for keywords in the last line
+    # if (
+    #     "dialog text is green" in last_line 
+    #     or "evidence window is open" in last_line 
+    #     or "options are available" in last_line
+    # ):
+    #     game_state = "Cross-Examination"
+    # else: 
+    #     game_state = "Conversation"
+
 
     # -------------------- Memory Processing -------------------- #
     # Update long-term memory only

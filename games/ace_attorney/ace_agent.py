@@ -11,6 +11,8 @@ import os
 import json
 import re
 import pyautogui
+# from games.ace_attorney.reflection_worker import ReflectionTracker
+
 
 from games.ace_attorney.workers import (
     ace_attorney_worker, 
@@ -61,6 +63,8 @@ system_prompt = (
 )
 
 def main():
+    # reflection = ReflectionTracker()
+
     parser = argparse.ArgumentParser(description="Ace Attorney AI Agent")
     parser.add_argument("--api_provider", type=str, default="anthropic", help="API provider to use.")
     parser.add_argument("--model_name", type=str, default="claude-3-7-sonnet-20250219", help="LLM model name.")
@@ -272,6 +276,24 @@ def main():
                 modality=args.modality,
                 episode_name=args.episode_name
             )
+
+            # Record presented evidence into long-term memory as dialog format
+            if chosen_move == "x" and chosen_evidence and chosen_evidence.get("name"):
+                presentation_dialog = {
+                    "name": "Phoenix",
+                    "text": f"I present the {chosen_evidence['name']}."
+                }
+                long_term_memory_worker(
+                    system_prompt,
+                    args.api_provider,
+                    args.model_name,
+                    prev_response,
+                    thinking=thinking_bool,
+                    modality=args.modality,
+                    episode_name=args.episode_name,
+                    dialog=presentation_dialog
+                )
+
 
             if chosen_move == "z" and decision_state and decision_state.get("has_options"):
                 decision_state = None  # Reset after confirming choice
