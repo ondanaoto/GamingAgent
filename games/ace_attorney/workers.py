@@ -713,15 +713,19 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     # Extract Scene Description
     scene_match = re.search(r"Scene:\s*(.+?)(?:\n\w+:|$)", response_text, re.DOTALL)
     scene = scene_match.group(1).strip() if scene_match else ""
+    last_line = response_text.strip().split('\n')[-1]
     print(game_state)
+    print(last_line)
+    # Check for keywords in the last line
     if (
-        "dialog text is green" in scene 
-        or "evidence window is open" in scene 
-        or "options are available" in scene
+        "dialog text is green" in last_line 
+        or "evidence window is open" in last_line 
+        or "options are available" in last_line
     ):
         game_state = "Cross-Examination"
     else: 
         game_state = "Conversation"
+
     print(game_state)
 
 
