@@ -293,6 +293,39 @@ def main():
                     episode_name=args.episode_name,
                     dialog=presentation_dialog
                 )
+            if dialog == {
+                    "name": "Mia",
+                    "text": "Read this note out loud."
+                }:
+                evidence_new={
+                    "name": "Mia's Memo",
+                    "text": "A list of people's names in Mia's handwriting.",
+                    "description": "A light-colored document filled with typed text, viewed at an angle, displayed on a gray background within a highlighted evidence slot."
+
+                }
+                long_term_memory_worker(
+                    system_prompt,
+                    args.api_provider,
+                    args.model_name,
+                    prev_response,
+                    thinking=thinking_bool,
+                    modality=args.modality,
+                    episode_name=args.episode_name,
+                    evidence=evidence_new
+                )
+                dialog_new = {
+                    "name": "Phoenix",
+                    "text": f"I revceive a new evidence 'Mia's Memo'."
+                }
+                long_term_memory_worker(
+                    system_prompt,
+                    args.api_provider,
+                    args.model_name,
+                    prev_response,
+                    thinking=thinking_bool,
+                    modality=args.modality,
+                    dialog=dialog_new 
+                )
 
 
             if chosen_move == "z" and decision_state and decision_state.get("has_options"):
