@@ -1,5 +1,5 @@
 <div align="center"> <h1>GamingAgent - Personal Computer Gaming Agent</h1> </div> 
-<p align="center"> <a href="https://x.com/largemodelgame"><b>📺 Demos on X</b></a> | <a href="https://lmgame.org/#/gaming_agent"><b>🏆 Leaderboard</b></a> | <a href="https://lmgame.org/#/blog/gaming_agent_intro"><b>📝 Blog</b></a> </p>
+<p align="center"> <a href="https://x.com/largemodelgame"><b>📺 Demos on X</b></a> | <a href="https://huggingface.co/spaces/lmgame/game_arena_bench"><b>🏆 Leaderboard</b></a> | <a href="https://lmgame.org/#/blog/gaming_agent_intro"><b>📝 Blog</b></a> | <a href="https://lmgame.org/#/gaming_agent"><b>🌐 Web</b></a></p>
 
 ## Contents
 - [Gallery](#gallery)
