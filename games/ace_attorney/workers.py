@@ -3,8 +3,9 @@ import os
 import pyautogui
 import numpy as np
 
-from tools.utils import encode_image, log_output, get_annotate_img, capture_game_window
+from tools.utils import encode_image, log_output, get_annotate_img, capture_game_window, log_request_cost
 from tools.serving.api_providers import anthropic_completion, anthropic_text_completion, openai_completion, openai_text_reasoning_completion, gemini_completion, gemini_text_completion, deepseek_text_reasoning_completion
+from tools.api_cost_calculator import calculate_all_costs_and_tokens
 import re
 import json
 
@@ -86,6 +87,24 @@ def vision_evidence_worker(system_prompt, api_provider, model_name, modality, th
         response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
+    
+    # Update completion in cost data
+    cost_data = calculate_all_costs_and_tokens(
+        prompt=prompt,
+        completion=response,
+        model=model_name,
+        image_path=screenshot_path if base64_image else None
+    )
+    
+    # Log the request costs
+    log_request_cost(
+        num_input=cost_data["prompt_tokens"] + cost_data.get("image_tokens", 0),
+        num_output=cost_data["completion_tokens"],
+        input_cost=float(cost_data["prompt_cost"] + cost_data.get("image_cost", 0)),
+        output_cost=float(cost_data["completion_cost"]),
+        game_name="ace_attorney",
+        input_image_tokens=cost_data.get("image_tokens", 0)
+    )
     
     return {
         "response": response,
@@ -187,6 +206,25 @@ def vision_worker(system_prompt, api_provider, model_name,
         response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
+
+    # Update completion in cost data
+    cost_data = calculate_all_costs_and_tokens(
+        prompt=prompt,
+        completion=response,
+        model=model_name,
+        image_path=screenshot_path if base64_image else None
+    )
+    
+    # Log the request costs
+    log_request_cost(
+        num_input=cost_data["prompt_tokens"] + cost_data.get("image_tokens", 0),
+        num_output=cost_data["completion_tokens"],
+        input_cost=float(cost_data["prompt_cost"] + cost_data.get("image_cost", 0)),
+        output_cost=float(cost_data["completion_cost"]),
+        game_name="ace_attorney",
+        input_image_tokens=cost_data.get("image_tokens", 0)
+    )
+    
     return {
         "response": response,
         "screenshot_path": screenshot_path
@@ -522,6 +560,24 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
             response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
         else:
             raise NotImplementedError(f"API provider: {api_provider} is not supported.")
+
+        # Update completion in cost data
+        cost_data = calculate_all_costs_and_tokens(
+            prompt=prompt,
+            completion=response,
+            model=model_name,
+            image_path=screenshot_path if base64_image else None
+        )
+        
+        # Log the request costs
+        log_request_cost(
+            num_input=cost_data["prompt_tokens"] + cost_data.get("image_tokens", 0),
+            num_output=cost_data["completion_tokens"],
+            input_cost=float(cost_data["prompt_cost"] + cost_data.get("image_cost", 0)),
+            output_cost=float(cost_data["completion_cost"]),
+            game_name="ace_attorney",
+            input_image_tokens=cost_data.get("image_tokens", 0)
+        )
 
         # Extract move and thought from response
         move_match = re.search(r"move:\s*(.+?)(?=\n|$)", response)
@@ -1060,6 +1116,24 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
         response = gemini_completion(system_prompt, model_name, base64_image, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
+    
+    # Update completion in cost data
+    cost_data = calculate_all_costs_and_tokens(
+        prompt=prompt,
+        completion=response,
+        model=model_name,
+        image_path=screenshot_path if base64_image else None
+    )
+    
+    # Log the request costs
+    log_request_cost(
+        num_input=cost_data["prompt_tokens"] + cost_data.get("image_tokens", 0),
+        num_output=cost_data["completion_tokens"],
+        input_cost=float(cost_data["prompt_cost"] + cost_data.get("image_cost", 0)),
+        output_cost=float(cost_data["completion_cost"]),
+        game_name="ace_attorney",
+        input_image_tokens=cost_data.get("image_tokens", 0)
+    )
 
     # Extract all information from response
     game_state_match = re.search(r"Game State:\s*(Cross-Examination|Conversation)", response)

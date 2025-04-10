@@ -15,6 +15,8 @@ import numpy as np
 import json
 import argparse
 
+
+
 def encode_image(image_path):
     """
     Read a file from disk and return its contents as a base64-encoded string.
@@ -633,3 +635,48 @@ def log_game_event(log_text, game_name="ace_attorney", cache_dir="cache"):
     os.makedirs(os.path.join(cache_dir, game_name), exist_ok=True)
     with open(os.path.join(cache_dir, game_name, f"{game_name}.log"), "a", encoding="utf-8") as f:
         f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {log_text}\n")
+
+
+def log_request_cost(num_input, num_output, input_cost, output_cost, game_name, 
+                    input_image_tokens=0, cache_dir="cache"):
+    """
+    Logs API request costs including token counts and costs.
+    
+    Args:
+        num_input (int): Total number of input tokens
+        num_output (int): Number of output tokens
+        input_cost (float): Total input cost
+        output_cost (float): Total output cost
+        game_name (str): Name of the game
+        input_image_tokens (int, optional): Number of image tokens (default: 0)
+        cache_dir (str): Base cache directory (default: "cache")
+    """
+    # Create game-specific cache directory
+    os.makedirs(cache_dir, exist_ok=True)
+    
+    # Create log file path
+    log_file = os.path.join(cache_dir, "api_costs.log")
+    
+    # Calculate text tokens
+    input_text_tokens = num_input - input_image_tokens
+    
+    # Format log entry
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = (
+        f"[{timestamp}]\n"
+        f"Game: {game_name}\n"
+        f"Total Input Tokens: {num_input}\n"
+        f"Input Text Tokens: {input_text_tokens}\n"
+        f"Input Image Tokens: {input_image_tokens}\n"
+        f"Output Tokens: {num_output}\n"
+        f"Total Input Cost: ${input_cost:.6f}\n"
+        f"Total Output Cost: ${output_cost:.6f}\n"
+        f"Total Cost: ${input_cost + output_cost:.6f}\n"
+        f"{'-'*50}\n"
+    )
+    
+    # Write to log file
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(log_entry)
+    
+    return log_file
