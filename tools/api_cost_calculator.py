@@ -133,6 +133,21 @@ def count_message_tokens(messages: List[Dict[str, str]], model: str) -> int:
     num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
     return num_tokens
 
+def convert_string_to_messsage(prompt: str) -> List[Dict[str, str]]:
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": prompt
+                },
+            ],
+        }
+    ]
+
+    return messages
+
 
 def count_string_tokens(prompt: str, model: str) -> int:
     """
@@ -345,9 +360,22 @@ def count_image_tokens(image_path: str, model: str):
             # Gemini models
             elif any(model.startswith(prefix) for prefix in ["gemini", "models/gemini"]):
                 try:
+                    
                     # Try to use the direct API first (most accurate)
                     import google.generativeai as genai
                     import os
+
+                    # Fallback to manual calculation using Gemini 2.0 rules
+                    if "2.0" in model or any(version in model for version in ["1.5", "1.0"]):
+                        # Gemini 2.0 rules:
+                        # - Images ≤384×384px: 258 tokens
+                        # - Larger images: Split into 768×768 tiles, 258 tokens per tile
+                        if width <= 384 and height <= 384:
+                            return 258
+                        else:
+                            # Calculate number of 768×768 tiles needed
+                            num_tiles = math.ceil(width / 768) * math.ceil(height / 768)
+                            return num_tiles * 258
                     
                     api_key = os.getenv("GEMINI_API_KEY")
                     if api_key:
@@ -358,21 +386,8 @@ def count_image_tokens(image_path: str, model: str):
                         return token_count.total_tokens
                 except (ImportError, Exception) as e:
                     logger.warning(f"Couldn't use Google's API for token counting: {e}")
-                    
-                # Fallback to manual calculation using Gemini 2.0 rules
-                if "2.0" in model or any(version in model for version in ["1.5", "1.0"]):
-                    # Gemini 2.0 rules:
-                    # - Images ≤384×384px: 258 tokens
-                    # - Larger images: Split into 768×768 tiles, 258 tokens per tile
-                    if width <= 384 and height <= 384:
-                        return 258
-                    else:
-                        # Calculate number of 768×768 tiles needed
-                        num_tiles = math.ceil(width / 768) * math.ceil(height / 768)
-                        return num_tiles * 258
-                else:
-                    # Pre-Gemini 2.0: flat 258 tokens per image
                     return 258
+                    
                 
             # Default case for other models
             else:

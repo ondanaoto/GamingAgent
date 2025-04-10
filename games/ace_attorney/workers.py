@@ -5,7 +5,7 @@ import numpy as np
 
 from tools.utils import encode_image, log_output, get_annotate_img, capture_game_window, log_request_cost
 from tools.serving.api_providers import anthropic_completion, anthropic_text_completion, openai_completion, openai_text_reasoning_completion, gemini_completion, gemini_text_completion, deepseek_text_reasoning_completion
-from tools.api_cost_calculator import calculate_all_costs_and_tokens
+from tools.api_cost_calculator import calculate_all_costs_and_tokens, convert_string_to_messsage
 import re
 import json
 
@@ -87,10 +87,10 @@ def vision_evidence_worker(system_prompt, api_provider, model_name, modality, th
         response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-    
+    prompt_message = convert_string_to_messsage(prompt)
     # Update completion in cost data
     cost_data = calculate_all_costs_and_tokens(
-        prompt=prompt,
+        prompt=prompt_message,
         completion=response,
         model=model_name,
         image_path=screenshot_path if base64_image else None
@@ -206,10 +206,10 @@ def vision_worker(system_prompt, api_provider, model_name,
         response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-
+    prompt_message = convert_string_to_messsage(prompt)
     # Update completion in cost data
     cost_data = calculate_all_costs_and_tokens(
-        prompt=prompt,
+        prompt=prompt_message,
         completion=response,
         model=model_name,
         image_path=screenshot_path if base64_image else None
@@ -560,10 +560,10 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
             response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
         else:
             raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-
+        prompt_message = convert_string_to_messsage(prompt)
         # Update completion in cost data
         cost_data = calculate_all_costs_and_tokens(
-            prompt=prompt,
+            prompt=prompt_message,
             completion=response,
             model=model_name,
             image_path=screenshot_path if base64_image else None
@@ -1116,10 +1116,10 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
         response = gemini_completion(system_prompt, model_name, base64_image, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-    
+    prompt_message = convert_string_to_messsage(prompt)
     # Update completion in cost data
     cost_data = calculate_all_costs_and_tokens(
-        prompt=prompt,
+        prompt=prompt_message,
         completion=response,
         model=model_name,
         image_path=screenshot_path if base64_image else None
