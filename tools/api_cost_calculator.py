@@ -9,6 +9,10 @@ from typing import Union, List, Dict
 from .constants import TOKEN_COSTS
 from decimal import Decimal
 import logging
+from PIL import Image
+import math
+
+    
 
 logger = logging.getLogger(__name__)
 
@@ -266,10 +270,141 @@ def calculate_completion_cost(completion: str, model: str) -> Decimal:
     return calculate_cost_by_tokens(completion_tokens, model, "output")
 
 def count_image_tokens(image_path: str, model: str):
-    ...
+    """
+    Calculate the number of tokens for an image based on OpenAI, Claude, or Gemini token counting rules.
+    
+    Args:
+        image_path (str): Path to the image file
+        model (str): The model name
+        
+    Returns:
+        int: Number of tokens for the image
+    """
+    try:
+        # Open the image and get its dimensions
+        with Image.open(image_path) as img:
+            width, height = img.size
+            
+            # OpenAI models
+            if any(model.startswith(prefix) for prefix in ["gpt-4", "o"]):
+                # If image is smaller than or equal to 512x512, use 85 tokens
+                if width <= 512 and height <= 512:
+                    return 85
+                    
+                # Scale to fit in 2048x2048 square while maintaining aspect ratio
+                if width > 2048 or height > 2048:
+                    if width > height:
+                        new_width = 2048
+                        new_height = int(height * (2048 / width))
+                    else:
+                        new_height = 2048
+                        new_width = int(width * (2048 / height))
+                else:
+                    new_width, new_height = width, height
+                    
+                # Scale so shortest side is 768px
+                if new_width < new_height:
+                    scale = 768 / new_width
+                else:
+                    scale = 768 / new_height
+                    
+                new_width = int(new_width * scale)
+                new_height = int(new_height * scale)
+                
+                # Count number of 512px squares needed
+                num_squares = math.ceil(new_width / 512) * math.ceil(new_height / 512)
+                
+                # Calculate total tokens: 170 tokens per square + 85 base tokens
+                total_tokens = (num_squares * 170) + 85
+                
+                return total_tokens
+            
+            # Claude models
+            elif any(model.startswith(prefix) for prefix in ["claude"]):
+                # Check if image needs to be resized (Claude limits)
+                if width > 8000 or height > 8000:
+                    logger.warning(f"Image exceeds Claude's maximum size of 8000x8000. It will be rejected or resized.")
+                
+                # If dimensions exceed 1568 on either side, it will be resized by Claude
+                if width > 1568 or height > 1568:
+                    # Resize to keep aspect ratio, with longest side at 1568
+                    scale = 1568 / max(width, height)
+                    new_width = int(width * scale)
+                    new_height = int(height * scale)
+                    width, height = new_width, new_height
+                
+                # Use Claude's token calculation formula: (width * height) / 750
+                tokens = math.ceil((width * height) / 750)
+                
+                # Cap at the maximum for common aspect ratios
+                if tokens > 1600:
+                    tokens = 1600  # Maximum for images within Claude's optimal size
+                
+                return tokens
+            
+            # Gemini models
+            elif any(model.startswith(prefix) for prefix in ["gemini", "models/gemini"]):
+                try:
+                    # Try to use the direct API first (most accurate)
+                    import google.generativeai as genai
+                    import os
+                    
+                    api_key = os.getenv("GEMINI_API_KEY")
+                    if api_key:
+                        genai.configure(api_key=api_key)
+                        gemini_model = genai.GenerativeModel(f"models/{model}")
+                        image_file = genai.upload_file(path=image_path)
+                        token_count = gemini_model.count_tokens([image_file])
+                        return token_count.total_tokens
+                except (ImportError, Exception) as e:
+                    logger.warning(f"Couldn't use Google's API for token counting: {e}")
+                    
+                # Fallback to manual calculation using Gemini 2.0 rules
+                if "2.0" in model or any(version in model for version in ["1.5", "1.0"]):
+                    # Gemini 2.0 rules:
+                    # - Images ≤384×384px: 258 tokens
+                    # - Larger images: Split into 768×768 tiles, 258 tokens per tile
+                    if width <= 384 and height <= 384:
+                        return 258
+                    else:
+                        # Calculate number of 768×768 tiles needed
+                        num_tiles = math.ceil(width / 768) * math.ceil(height / 768)
+                        return num_tiles * 258
+                else:
+                    # Pre-Gemini 2.0: flat 258 tokens per image
+                    return 258
+                
+            # Default case for other models
+            else:
+                logger.warning(f"Model {model} is not recognized for image token counting. Using minimal token count.")
+                return 85
+                
+    except Exception as e:
+        logger.error(f"Error calculating image tokens: {e}")
+        return 0
 
 def calculate_image_cost(image_path: str, model: str):
-    ...
+    """
+    Calculate the cost of an image based on the number of tokens and model pricing.
+    
+    Args:
+        image_path (str): Path to the image file
+        model (str): The model name
+        
+    Returns:
+        Decimal: The calculated cost in USD
+    """
+    model = model.lower()
+    if model not in TOKEN_COSTS:
+        raise KeyError(
+            f"""Model {model} is not implemented.
+            Double-check your spelling, or submit an issue/PR"""
+        )
+        
+    image_tokens = count_image_tokens(image_path, model)
+    cost_per_token = TOKEN_COSTS[model]["input_cost_per_token"]
+    
+    return Decimal(str(cost_per_token)) * Decimal(image_tokens)
 
 def calculate_all_costs_and_tokens(
     prompt: Union[List[dict], str], completion: str, model: str, image_path: str = None
