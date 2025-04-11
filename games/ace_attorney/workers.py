@@ -103,7 +103,8 @@ def vision_evidence_worker(system_prompt, api_provider, model_name, modality, th
         input_cost=float(cost_data["prompt_cost"] + cost_data.get("image_cost", 0)),
         output_cost=float(cost_data["completion_cost"]),
         game_name="ace_attorney",
-        input_image_tokens=cost_data.get("image_tokens", 0)
+        input_image_tokens=cost_data.get("image_tokens", 0),
+        cache_dir=CACHE_DIR
     )
     
     return {
@@ -222,7 +223,8 @@ def vision_worker(system_prompt, api_provider, model_name,
         input_cost=float(cost_data["prompt_cost"] + cost_data.get("image_cost", 0)),
         output_cost=float(cost_data["completion_cost"]),
         game_name="ace_attorney",
-        input_image_tokens=cost_data.get("image_tokens", 0)
+        input_image_tokens=cost_data.get("image_tokens", 0),
+        cache_dir=CACHE_DIR
     )
     
     return {
@@ -576,7 +578,8 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
             input_cost=float(cost_data["prompt_cost"] + cost_data.get("image_cost", 0)),
             output_cost=float(cost_data["completion_cost"]),
             game_name="ace_attorney",
-            input_image_tokens=cost_data.get("image_tokens", 0)
+            input_image_tokens=cost_data.get("image_tokens", 0),
+            cache_dir=CACHE_DIR
         )
 
         # Extract move and thought from response
@@ -1132,7 +1135,8 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
         input_cost=float(cost_data["prompt_cost"] + cost_data.get("image_cost", 0)),
         output_cost=float(cost_data["completion_cost"]),
         game_name="ace_attorney",
-        input_image_tokens=cost_data.get("image_tokens", 0)
+        input_image_tokens=cost_data.get("image_tokens", 0),
+        cache_dir=CACHE_DIR
     )
 
     # Extract all information from response
