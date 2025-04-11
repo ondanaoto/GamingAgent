@@ -198,7 +198,6 @@ def calculate_cost_by_tokens(num_tokens: int, model: str, token_type: str) -> De
             Double-check your spelling, or submit an issue/PR"""
         )
 
-    cost_per_token = TOKEN_COSTS[model][cost_per_token_key]
 
     if "gemini-2.5" in model and num_tokens > 200000:
         cost_per_token_key = (
