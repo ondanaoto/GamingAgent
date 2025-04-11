@@ -185,7 +185,14 @@
         "Judge: This court finds the defendant, Mr. Larry Butz...",
         "Judge: And with that... This court is adjourned."
       ],
-      "end_statement": "Phoenix: That day..."
+      "end_statement": [
+        "Judge: That's enough!",
+        "Judge: This case has certainly turned out differently than we all expected.",
+        "Judge: Mr. Payne... Your witness?",
+        "Payne: He... er... He was arrested and has been taken away, Your Honor.",
+        "Judge: Very well.",
+        "Judge: I have to say, I'm impressed."
+      ]
     },
     "Turnabout_Sisters_part2": {
       "Phoenix: Can you be a little more detailed about that?": [
@@ -232,7 +239,15 @@
         "Phoenix: Obviously, the witness was not viewing the crime from the hotel!",
         "Judge: Mr. Wright! What do you mean?",
         "Edgeworth: Yes, what do you mean, he was not \"viewing the crime from the hotel\"!?"],
-      "end_statement": "Phoenix: In the law offices of Fey & Co., of course!"
+      "end_statement": [
+        "Judge: That's enough!",
+        "Phoenix: Then there can be only one explanation.",
+        "Edgeworth: Eh...? And that is?",
+        "Phoenix: Obviously, the witness was not viewing the crime from the hotel!",
+        "Edgeworth: Yes, what do you mean, he was not \"viewing the crime from the hotel\"!?",
+        "Edgeworth: If he was not in the hotel, where could he have been!?",
+        "Phoenix: In the law offices of Fey & Co., of course!"
+      ]
     },
     "Turnabout_Sisters_part3": {
       "Phoenix: The victim died from a single blow!": [
@@ -492,7 +507,18 @@
         "Judge: You've done it again! That was quite a spirited defense!",
         "Phoenix: I guess you could say that. (If only you knew how \"spirit\"-ed it was!)"
       ],
-      "end_statement": "Judge: Hmm. Well!"
+      "end_statement": [
+        "Judge: That's enough!",
+        "Judge: Hmm. Well!",
+        "Mia: Case closed, Your Honor.",
+        "Judge: Mr. Wright?",
+        "Phoenix: Yes, Your Honor.",
+        "Judge: You've done it again! That was quite a spirited defense!",
+        "Phoenix: I guess you could say that. (If only you knew how \"spirit\"-ed it was!)",
+        "Judge: Hmm. Well!",
+        "Judge: This court finds the defense...",
+        "Judge: Ahem! Rather, the defendant, Mr. Phoenix Wright..."
+      ]
     },
     "Turnabout_Sisters_part1":{
       "Phoenix: There's one thing I want you to clarify for me here.":[
@@ -843,6 +869,22 @@
         "Judge: Am I understood?",
         "EDGEWORTH: Yes... *gasp* Yes, Your Honor.",
         "Judge: That is all today for the trial of Maya Fey."
-      ]
+      ],
+      "end_statement": [
+        "Judge: That's enough!",
+        "Phoenix: I suppose you'd like it if it was too late, wouldn't you...",
+        "Phoenix: After all, it was you who hid the presence of the other man from this court!",
+        "Edgeworth: Upstart... amateur...!",
+        "Edgeworth: T-these accusations are... ludicrous!",
+        "Judge: Enough!",
+        "Judge: The court acknowledges the defense's argument.",
+        "Judge: I expect the prosecution and defense to look into this matter fully!",
+        "Judge: Am I understood?",
+        "EDGEWORTH: Yes... *gasp* Yes, Your Honor.",
+        "Judge: That is all today for the trial of Maya Fey.",
+        "Judge: Court is adjourned!",
+        "Maya: Mr. Wright!",
+        "Maya: You were amazing in there!"
+    ]
     }
   }
