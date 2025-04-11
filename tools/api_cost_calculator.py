@@ -11,6 +11,8 @@ from decimal import Decimal
 import logging
 from PIL import Image
 import math
+import google.generativeai as genai
+import os
 
     
 
@@ -171,7 +173,15 @@ def count_string_tokens(prompt: str, model: str) -> int:
         )
 
     try:
-        encoding = tiktoken.encoding_for_model(model)
+        if "gemini" in model:
+            api_key = os.getenv("GEMINI_API_KEY")
+            if api_key:
+                genai.configure(api_key=api_key)
+                gemini_model = genai.GenerativeModel(f"models/{model}")
+                token_count = gemini_model.count_tokens([prompt])
+                return token_count.total_tokens
+        else:
+            encoding = tiktoken.encoding_for_model(model)
     except KeyError:
         logger.warning("Warning: model not found. Using cl100k_base encoding.")
         encoding = tiktoken.get_encoding("cl100k_base")
@@ -368,10 +378,6 @@ def count_image_tokens(image_path: str, model: str):
             # Gemini models
             elif any(model.startswith(prefix) for prefix in ["gemini", "models/gemini"]):
                 try:
-                    
-                    # Try to use the direct API first (most accurate)
-                    import google.generativeai as genai
-                    import os
 
                     # Fallback to manual calculation using Gemini 2.0 rules
                     if "2.0" in model or any(version in model for version in ["1.5", "1.0"]):
@@ -384,7 +390,6 @@ def count_image_tokens(image_path: str, model: str):
                             # Calculate number of 768×768 tiles needed
                             num_tiles = math.ceil(width / 768) * math.ceil(height / 768)
                             return num_tiles * 258
-                    
                     api_key = os.getenv("GEMINI_API_KEY")
                     if api_key:
                         genai.configure(api_key=api_key)
