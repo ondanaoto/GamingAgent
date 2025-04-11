@@ -617,6 +617,7 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
             output_cost=float(cost_data["completion_cost"]),
             game_name="ace_attorney",
             input_image_tokens=cost_data.get("image_tokens", 0),
+            model_name=model_name,
             cache_dir=cache_dir
         )
 
@@ -1204,6 +1205,7 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
         output_cost=float(cost_data["completion_cost"]),
         game_name="ace_attorney",
         input_image_tokens=cost_data.get("image_tokens", 0),
+        model_name=model_name,
         cache_dir=cache_dir
     )
 
