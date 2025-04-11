@@ -376,7 +376,7 @@ def memory_retrieval_worker(system_prompt, api_provider, model_name,
 
     return memory_context
 
-def reasoning_worker(options, system_prompt, api_provider, model_name, game_state, c_statement, scene, memory_context, base64_image=None, modality="vision-text", thinking=True):
+def reasoning_worker(options, system_prompt, api_provider, model_name, game_state, c_statement, scene, memory_context, base64_image=None, modality="vision-text", thinking=True, screenshot_path=None):
     """
     Makes decisions about game moves based on current game state, scene description, and memory context.
     Uses API to generate thoughtful decisions.
@@ -845,6 +845,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         complete_memory,
         base64_image=encode_image(vision_result["screenshot_path"]),
         modality='text-only',
+        screenshot_path=vision_result["screenshot_path"],
         thinking=thinking
     )
 
