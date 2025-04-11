@@ -9,7 +9,8 @@ from tools.api_cost_calculator import calculate_all_costs_and_tokens, convert_st
 import re
 import json
 
-CACHE_DIR = "cache/ace_attorney"
+# Default cache directory (can be overridden by passing cache_dir parameter)
+DEFAULT_CACHE_DIR = "cache/ace_attorney"
 
 
 
@@ -30,11 +31,12 @@ def perform_move(move):
     
     # print(f"Performed move: {move}")
 
-def log_move_and_thought(move, thought, latency):
+def log_move_and_thought(move, thought, latency, cache_dir=None):
     """
     Logs the move and thought process into a log file inside the cache directory.
     """
-    log_file_path = os.path.join(CACHE_DIR, "ace_attorney_moves.log")
+    cache_dir = cache_dir or DEFAULT_CACHE_DIR
+    log_file_path = os.path.join(cache_dir, "ace_attorney_moves.log")
     
     log_entry = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Move: {move}, Thought: {thought}, Latency: {latency:.2f} sec\n"
     
@@ -44,12 +46,15 @@ def log_move_and_thought(move, thought, latency):
     except Exception as e:
         print(f"[ERROR] Failed to write log entry: {e}")
 
-def vision_evidence_worker(system_prompt, api_provider, model_name, modality, thinking):
+def vision_evidence_worker(system_prompt, api_provider, model_name, modality, thinking, cache_dir=None):
+    # Use provided cache_dir or default
+    cache_dir = cache_dir or DEFAULT_CACHE_DIR
+    
     # Capture game window screenshot
     screenshot_path = capture_game_window(
         image_name="ace_attorney_screenshot_evidence.png",
         window_name="Phoenix Wright: Ace Attorney Trilogy",
-        cache_dir=CACHE_DIR
+        cache_dir=cache_dir
     )
     if not screenshot_path:
         return {"error": "Failed to capture game window"}
@@ -104,7 +109,7 @@ def vision_evidence_worker(system_prompt, api_provider, model_name, modality, th
         output_cost=float(cost_data["completion_cost"]),
         game_name="ace_attorney",
         input_image_tokens=cost_data.get("image_tokens", 0),
-        cache_dir=CACHE_DIR
+        cache_dir=cache_dir
     )
     
     return {
@@ -116,18 +121,22 @@ def vision_worker(system_prompt, api_provider, model_name,
     prev_response="", 
     thinking=True, 
     modality="vision-text",
+    cache_dir=None
     ):
     """
     Captures and analyzes the current game screen.
     Returns scene analysis including game state, dialog text, and detailed scene description.
     """
     assert modality == "vision-text", "Vision worker requires vision-text modality"
+    
+    # Use provided cache_dir or default
+    cache_dir = cache_dir or DEFAULT_CACHE_DIR
 
     # Capture game window screenshot
     screenshot_path = capture_game_window(
         image_name="ace_attorney_screenshot.png",
         window_name="Phoenix Wright: Ace Attorney Trilogy",
-        cache_dir=CACHE_DIR
+        cache_dir=cache_dir
     )
     if not screenshot_path:
         return {"error": "Failed to capture game window"}
@@ -224,7 +233,7 @@ def vision_worker(system_prompt, api_provider, model_name,
         output_cost=float(cost_data["completion_cost"]),
         game_name="ace_attorney",
         input_image_tokens=cost_data.get("image_tokens", 0),
-        cache_dir=CACHE_DIR
+        cache_dir=cache_dir
     )
     
     return {
@@ -238,18 +247,22 @@ def long_term_memory_worker(system_prompt, api_provider, model_name,
     modality="vision-text",
     episode_name="The First Turnabout",
     dialog=None,
-    evidence=None
+    evidence=None,
+    cache_dir=None
     ):
     """
     Maintains dialog history for the current episode.
     If evidence is provided, adds it to the evidences list.
     """
+    # Use provided cache_dir or default
+    cache_dir = cache_dir or DEFAULT_CACHE_DIR
+    
     # Create cache directory for dialog history if it doesn't exist
-    cache_dir = os.path.join("cache", "ace_attorney", "dialog_history")
-    os.makedirs(cache_dir, exist_ok=True)
+    dialog_history_dir = os.path.join(cache_dir, "dialog_history")
+    os.makedirs(dialog_history_dir, exist_ok=True)
 
     # Define the JSON file path based on the episode name
-    json_file = os.path.join(cache_dir, f"{episode_name.lower().replace(' ', '_')}.json")
+    json_file = os.path.join(dialog_history_dir, f"{episode_name.lower().replace(' ', '_')}.json")
 
     # Load existing dialog history or initialize new structure
     if os.path.exists(json_file):
@@ -285,23 +298,28 @@ def short_term_memory_worker(system_prompt, api_provider, model_name,
     prev_response="", 
     thinking=True, 
     modality="vision-text",
-    episode_name="The First Turnabout"
+    episode_name="The First Turnabout",
+    cache_dir=None
     ):
     """
     Maintains a short-term memory of previous responses by storing the last 7 responses in the JSON file.
     Args:
         episode_name (str): Name of the current episode
         prev_response (str): The new response to add to the queue
+        cache_dir (str, optional): Directory to save memory data
     """
     if not prev_response:
         return
+    
+    # Use provided cache_dir or default
+    cache_dir = cache_dir or DEFAULT_CACHE_DIR
         
     # Create cache directory if it doesn't exist
-    cache_dir = os.path.join(CACHE_DIR, "dialog_history")
-    os.makedirs(cache_dir, exist_ok=True)
+    dialog_history_dir = os.path.join(cache_dir, "dialog_history")
+    os.makedirs(dialog_history_dir, exist_ok=True)
     
     # JSON file path for the episode
-    json_file = os.path.join(cache_dir, f"{episode_name.lower().replace(' ', '_')}.json")
+    json_file = os.path.join(dialog_history_dir, f"{episode_name.lower().replace(' ', '_')}.json")
     
     # Load existing dialog history or create new one
     if os.path.exists(json_file):
@@ -336,11 +354,15 @@ def memory_retrieval_worker(system_prompt, api_provider, model_name,
     prev_response="", 
     thinking=True, 
     modality="vision-text",
-    episode_name="The First Turnabout"
+    episode_name="The First Turnabout",
+    cache_dir=None
     ):
     """
     Retrieves and composes complete memory context from long-term and short-term memory.
     """
+    # Use provided cache_dir or default
+    cache_dir = cache_dir or DEFAULT_CACHE_DIR
+    
     # Load background conversation context
     background_file = "games/ace_attorney/ace_attorney_1.json"
     with open(background_file, 'r', encoding='utf-8') as f:
@@ -348,7 +370,7 @@ def memory_retrieval_worker(system_prompt, api_provider, model_name,
     background_context = background_data[episode_name]["Case_Transcript"]
 
     # Load current episode memory
-    memory_file = os.path.join("cache", "ace_attorney", "dialog_history", f"{episode_name.lower().replace(' ', '_')}.json")
+    memory_file = os.path.join(cache_dir, "dialog_history", f"{episode_name.lower().replace(' ', '_')}.json")
     if os.path.exists(memory_file):
         with open(memory_file, 'r', encoding='utf-8') as f:
             memory_data = json.load(f)
@@ -376,7 +398,7 @@ def memory_retrieval_worker(system_prompt, api_provider, model_name,
 
     return memory_context
 
-def reasoning_worker(options, system_prompt, api_provider, model_name, game_state, c_statement, scene, memory_context, base64_image=None, modality="vision-text", thinking=True, screenshot_path=None):
+def reasoning_worker(options, system_prompt, api_provider, model_name, game_state, c_statement, scene, memory_context, base64_image=None, modality="vision-text", thinking=True, screenshot_path=None, cache_dir=None):
     """
     Makes decisions about game moves based on current game state, scene description, and memory context.
     Uses API to generate thoughtful decisions.
@@ -391,10 +413,15 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
         base64_image (str, optional): Base64 encoded screenshot of the current game state
         modality (str): Modality to use (vision-text or text-only)
         thinking (bool): Whether to use deep thinking
+        screenshot_path (str, optional): Path to the screenshot
+        cache_dir (str, optional): Directory to save logs
     
     Returns:
         dict: Contains move and thought
     """
+    # Use provided cache_dir or default
+    cache_dir = cache_dir or DEFAULT_CACHE_DIR
+    
     # Extract and format evidence information
     evidences_section = memory_context.split("Collected Evidences:")[1].strip()
     collected_evidences = [e for e in evidences_section.split("\n") if e.strip()]
@@ -579,7 +606,7 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
             output_cost=float(cost_data["completion_cost"]),
             game_name="ace_attorney",
             input_image_tokens=cost_data.get("image_tokens", 0),
-            cache_dir=CACHE_DIR
+            cache_dir=cache_dir
         )
 
         # Extract move and thought from response
@@ -606,10 +633,14 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
     thinking=True, 
     modality="vision-text",
     episode_name="The First Turnabout",
+    cache_dir=None
     ):
     """
     Iterates through known evidences using vision, stores full evidence with name, text, and vision-based description.
     """
+    # Use provided cache_dir or default
+    cache_dir = cache_dir or DEFAULT_CACHE_DIR
+    
     background_file = "games/ace_attorney/ace_attorney_1.json"
     with open(background_file, 'r') as f:
         background_data = json.load(f)
@@ -637,7 +668,8 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
             api_provider,
             model_name,
             modality,
-            thinking
+            thinking,
+            cache_dir=cache_dir
         )
         if "error" in vision_result:
             return vision_result
@@ -662,7 +694,8 @@ def ace_evidence_worker(system_prompt, api_provider, model_name,
             thinking,
             modality,
             episode_name,
-            evidence=evidence
+            evidence=evidence,
+            cache_dir=cache_dir
         )
 
         print(f"[INFO] Collected evidence: {evidence}")
@@ -687,6 +720,7 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     modality="vision-text",
     episode_name="The First Turnabout",
     decision_state=None,
+    cache_dir=None
     ):
     """
     1) Captures a screenshot of the current game state.
@@ -697,8 +731,12 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
     
     Args:
         episode_name (str): Name of the current episode (default: "The First Turnabout")
+        cache_dir (str, optional): Directory to save cache files
     """
     assert modality in ["text-only", "vision-text"], f"modality {modality} is not supported."
+    
+    # Use provided cache_dir or default
+    cache_dir = cache_dir or DEFAULT_CACHE_DIR
 
     # -------------------- Vision Processing -------------------- #
     # First, analyze the current game state using vision
@@ -708,7 +746,8 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         model_name,
         prev_response,
         thinking,
-        modality="vision-text"
+        modality="vision-text",
+        cache_dir=cache_dir
     )
 
     if "error" in vision_result:
@@ -804,7 +843,8 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
                 thinking,
                 modality,
                 episode_name,
-                evidence=evidence
+                evidence=evidence,
+                cache_dir=cache_dir
             )
     else:
         # If in Conversation or Cross-Examination mode, update dialog
@@ -817,7 +857,8 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
                 thinking,
                 modality,
                 episode_name,
-                dialog=dialog
+                dialog=dialog,
+                cache_dir=cache_dir
             )
 
     # Then, retrieve and compose complete memory context
@@ -828,7 +869,8 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         prev_response,
         thinking,
         modality,
-        episode_name
+        episode_name,
+        cache_dir=cache_dir
     )
 
     c_statement = f"{dialog}"
@@ -846,7 +888,8 @@ def ace_attorney_worker(system_prompt, api_provider, model_name,
         base64_image=encode_image(vision_result["screenshot_path"]),
         modality='text-only',
         screenshot_path=vision_result["screenshot_path"],
-        thinking=thinking
+        thinking=thinking,
+        cache_dir=cache_dir
     )
 
     # In your reasoning loop, track moves:
@@ -913,7 +956,7 @@ def check_skip_conversation(dialog, episode_name):
         print(f"[ERROR] Failed to check skip conversation: {e}")
         return None
 
-def handle_skip_conversation(system_prompt, api_provider, model_name, prev_response, thinking, modality, episode_name, dialog, skip_dialogs):
+def handle_skip_conversation(system_prompt, api_provider, model_name, prev_response, thinking, modality, episode_name, dialog, skip_dialogs, cache_dir=None):
     """
     Handles skipping through a known conversation sequence.
     Updates long-term memory and performs the necessary moves.
@@ -921,7 +964,11 @@ def handle_skip_conversation(system_prompt, api_provider, model_name, prev_respo
     Args:
         dialog (dict): Current dialog that triggered the skip
         skip_dialogs (list): List of dialogs to skip through
+        cache_dir (str, optional): Directory to save cache files
     """
+    # Use provided cache_dir or default
+    cache_dir = cache_dir or DEFAULT_CACHE_DIR
+    
     if not skip_dialogs:
         return None
         
@@ -949,7 +996,8 @@ def handle_skip_conversation(system_prompt, api_provider, model_name, prev_respo
                 thinking,
                 modality,
                 episode_name,
-                dialog=dialog_entry
+                dialog=dialog_entry,
+                cache_dir=cache_dir
             )
     
     # Perform 'z' moves for each dialog in the sequence (except the first one)
@@ -1002,7 +1050,8 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
     prev_response="", 
     thinking=True, 
     modality="vision-only",
-    episode_name="The First Turnabout"
+    episode_name="The First Turnabout",
+    cache_dir=None
     ):
     """
     Combines vision analysis and reasoning in a single step.
@@ -1010,12 +1059,15 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
     Also updates long-term memory with new information.
     """
     assert modality == "vision-only", "This worker requires vision-only modality"
+    
+    # Use provided cache_dir or default
+    cache_dir = cache_dir or DEFAULT_CACHE_DIR
 
     # Capture game window screenshot
     screenshot_path = capture_game_window(
         image_name="ace_attorney_screenshot.png",
         window_name="Phoenix Wright: Ace Attorney Trilogy",
-        cache_dir=CACHE_DIR
+        cache_dir=cache_dir
     )
     if not screenshot_path:
         return {"error": "Failed to capture game window"}
@@ -1030,7 +1082,8 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
         prev_response,
         thinking,
         modality,
-        episode_name
+        episode_name,
+        cache_dir=cache_dir
     )
 
     # Extract and format evidence information from memory
@@ -1137,7 +1190,7 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
         output_cost=float(cost_data["completion_cost"]),
         game_name="ace_attorney",
         input_image_tokens=cost_data.get("image_tokens", 0),
-        cache_dir=CACHE_DIR
+        cache_dir=cache_dir
     )
 
     # Extract all information from response
@@ -1176,7 +1229,8 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
                 thinking,
                 modality,
                 episode_name,
-                evidence=evidence
+                evidence=evidence,
+                cache_dir=cache_dir
             )
     else:
         if dialog["name"] and dialog["text"]:
@@ -1188,7 +1242,8 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
                 thinking,
                 modality,
                 episode_name,
-                dialog=dialog
+                dialog=dialog,
+                cache_dir=cache_dir
             )
 
     return {
@@ -1208,6 +1263,7 @@ def vision_only_ace_attorney_worker(system_prompt, api_provider, model_name,
     modality="vision-text",
     episode_name="The First Turnabout",
     decision_state=None,
+    cache_dir=None
     ):
     """
     1) Captures a screenshot of the current game state.
@@ -1218,166 +1274,79 @@ def vision_only_ace_attorney_worker(system_prompt, api_provider, model_name,
     
     Args:
         episode_name (str): Name of the current episode (default: "The First Turnabout")
+        cache_dir (str, optional): Directory to save cache files
     """
-    assert modality in ["text-only", "vision-text"], f"modality {modality} is not supported."
+    assert modality in ["text-only", "vision-text", "vision-only"], f"modality {modality} is not supported."
+    
+    # Use provided cache_dir or default
+    cache_dir = cache_dir or DEFAULT_CACHE_DIR
 
-    # -------------------- Vision Processing -------------------- #
-    # First, analyze the current game state using vision
-    vision_result = vision_worker(
+    # Use vision_only_reasoning_worker which combines vision analysis and reasoning
+    result = vision_only_reasoning_worker(
         system_prompt,
         api_provider,
         model_name,
         prev_response,
         thinking,
-        modality="vision-text"
+        modality="vision-only",
+        episode_name=episode_name,
+        cache_dir=cache_dir
     )
-
-    if "error" in vision_result:
-        return vision_result
-
-    # Extract the formatted outputs using regex
-    response_text = vision_result["response"]
     
-    # Extract Game State
-    game_state_match = re.search(r"Game State:\s*(Cross-Examination|Conversation|Evidence)", response_text)
-    game_state = game_state_match.group(1) if game_state_match else "Unknown"
+    if "error" in result:
+        return result
     
-    # Extract Dialog (with NAME: text format)
-    dialog_match = re.search(r"Dialog:\s*([^:\n]+):\s*(.+?)(?=\n|$)", response_text)
-    dialog = {
-        "name": dialog_match.group(1) if dialog_match else "",
-        "text": dialog_match.group(2).strip() if dialog_match else ""
-    }
-    
-    # Extract Evidence
-    evidence_match = re.search(r"Evidence:\s*([^:\n]+):\s*(.+?)(?=\n|$)", response_text)
-    evidence = {
-        "name": evidence_match.group(1) if evidence_match else "",
-        "description": evidence_match.group(2).strip() if evidence_match else ""
-    }
-    
-    ###------------ Extract Options ---------------###
-    # Default options structure
+    # Extract options if present in the scene description
     options = {
         "choices": [],
         "selected": ""
     }
-
-    options_match = re.search(r"Options:\s*(.+)", response_text)
-    if options_match:
-        raw_options = options_match.group(1).strip()
-        if raw_options.lower() != "none":
-            # Extract individual option entries using comma-separated pairs
-            option_entries = [opt.strip() for opt in raw_options.split(';') if opt.strip()]
-            for entry in option_entries:
-                match = re.match(r"(.+?),\s*(selected|not selected)", entry)
-                if match:
-                    text, state = match.groups()
-                    options["choices"].append(text.strip())
-                    if state == "selected":
-                        options["selected"] = text.strip()
-
-    if options["choices"]:
-        game_state = "Cross-Examination"
-        if decision_state is None:
-            decision_state = {
-                "has_options": True,
-                "down_count": 0,
-                "selection_index": 0,
-                "selected_text": options["choices"][0],  # default to first option
-                "decision_timestamp": None
-            }
-        options["selected"] = decision_state["selected_text"]
+    
+    scene = result.get("scene", "")
+    
+    # Check if options are mentioned in the scene description
+    if "option" in scene.lower() and "selected" in scene.lower():
+        # Try to parse options from the scene description
+        option_lines = [line for line in scene.split('\n') if "option" in line.lower() and ("selected" in line.lower() or "highlighted" in line.lower())]
         
-    # Extract Scene Description
-    print("\n=== Vision Worker Output ===")
-    print(response_text)
-    scene_match = re.search(r"Scene:\s*((?:.|\n)+?)(?=\n(?:Game State:|Dialog:|Evidence:|Options:|$)|$)", response_text, re.DOTALL)
-    scene = scene_match.group(1).strip() if scene_match else ""
-    print("="*50 + "\n")
-
-    # -------------------- Memory Processing -------------------- #
-    # Update long-term memory only
-    if game_state == "Evidence":
-        # If in Evidence mode, update evidence instead of dialog
-        if evidence["name"] and evidence["description"]:
-            evidence_file = long_term_memory_worker(
-                system_prompt,
-                api_provider,
-                model_name,
-                prev_response,
-                thinking,
-                modality,
-                episode_name,
-                evidence=evidence
-            )
-    else:
-        # If in Conversation or Cross-Examination mode, update dialog
-        if dialog["name"] and dialog["text"]:
-            dialog_file = long_term_memory_worker(
-                system_prompt,
-                api_provider,
-                model_name,
-                prev_response,
-                thinking,
-                modality,
-                episode_name,
-                dialog=dialog
-            )
-
-    # Then, retrieve and compose complete memory context
-    complete_memory = memory_retrieval_worker(
-        system_prompt,
-        api_provider,
-        model_name,
-        prev_response,
-        thinking,
-        modality,
-        episode_name
-    )
-
-    c_statement = f"{dialog}"
-    # -------------------- Reasoning -------------------- #
-    # Make decisions about game moves
-    reasoning_result = reasoning_worker(
-        options,
-        system_prompt,
-        api_provider,
-        model_name,
-        game_state,
-        c_statement,
-        scene,
-        complete_memory,
-        base64_image=encode_image(vision_result["screenshot_path"]),
-        modality='text-only',
-        thinking=thinking
-    )
-
-    # In your reasoning loop, track moves:
-    if decision_state:
-        if reasoning_result["move"] == "down" and decision_state["has_options"]:
+        if option_lines:
+            options["choices"] = []
+            for line in option_lines:
+                # Try to extract option text
+                option_text = re.search(r'"([^"]+)"', line)
+                if option_text:
+                    option_choice = option_text.group(1).strip()
+                    options["choices"].append(option_choice)
+                    # If this option is selected
+                    if "selected" in line.lower() or "highlighted" in line.lower():
+                        options["selected"] = option_choice
+    
+    # Setup decision state for options if needed
+    if options["choices"] and not decision_state:
+        decision_state = {
+            "has_options": True,
+            "down_count": 0,
+            "selection_index": 0,
+            "selected_text": options["choices"][0],  # default to first option
+            "decision_timestamp": None
+        }
+        
+    # Update decision state based on move
+    if decision_state and result.get("move"):
+        if result["move"] == "down" and decision_state["has_options"]:
             decision_state["down_count"] += 1
             i = min(decision_state["down_count"], len(options["choices"]) - 1)
             decision_state["selection_index"] = i
             decision_state["selected_text"] = options["choices"][i]
-
-        if reasoning_result["move"] == "z" and decision_state["has_options"]:
+            
+        if result["move"] == "z" and decision_state["has_options"]:
             decision_state["decision_timestamp"] = time.time()
             print(f"[Decision Made] Selected option: '{decision_state['selected_text']}' at index {decision_state['selection_index']} (via {decision_state['down_count']} down moves)")
-
-    parsed_result = {
-        "game_state": game_state,
-        "dialog": dialog,
-        "evidence": evidence,
-        "scene": scene,
-        "screenshot_path": vision_result["screenshot_path"],
-        "memory_context": complete_memory,
-        "move": reasoning_result["move"],
-        "thought": reasoning_result["thought"],
-        "options": options,
-        "decision_state": decision_state
-    }
-
-    return parsed_result
+    
+    # Add options and decision state to the result
+    result["options"] = options
+    result["decision_state"] = decision_state
+    
+    return result
 
 # return move_thought_list

@@ -637,7 +637,7 @@ def log_game_event(log_text, game_name="ace_attorney", cache_dir="cache"):
         f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {log_text}\n")
 
 
-def log_request_cost(num_input, num_output, input_cost, output_cost, game_name, 
+def log_request_cost(num_input, num_output, input_cost, output_cost, game_name, model_name,
                     input_image_tokens=0, cache_dir="cache"):
     """
     Logs API request costs including token counts and costs.
@@ -655,7 +655,7 @@ def log_request_cost(num_input, num_output, input_cost, output_cost, game_name,
     os.makedirs(cache_dir, exist_ok=True)
     
     # Create log file path
-    log_file = os.path.join(cache_dir, "api_costs.log")
+    log_file = os.path.join(cache_dir, f"{game_name}_{model_name}_api_costs.log")
     
     # Calculate text tokens
     input_text_tokens = num_input - input_image_tokens
@@ -665,6 +665,7 @@ def log_request_cost(num_input, num_output, input_cost, output_cost, game_name,
     log_entry = (
         f"[{timestamp}]\n"
         f"Game: {game_name}\n"
+        f"Model: {model_name}\n"
         f"Total Input Tokens: {num_input}\n"
         f"Input Text Tokens: {input_text_tokens}\n"
         f"Input Image Tokens: {input_image_tokens}\n"

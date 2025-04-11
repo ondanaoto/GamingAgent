@@ -6,6 +6,7 @@ from collections import deque, Counter
 import shutil
 import threading
 from concurrent.futures import ThreadPoolExecutor
+import datetime
 
 import os
 import json
@@ -30,7 +31,8 @@ from games.ace_attorney.workers import (
 from tools.utils import str2bool, encode_image, log_output, get_annotate_img, capture_game_window, log_game_event
 from collections import Counter
 
-CACHE_DIR = "cache/ace_attorney"
+# Global base cache directory
+BASE_CACHE_DIR = "cache/ace_attorney"
 
 def majority_vote_move(moves_list, prev_move=None):
     """
@@ -79,10 +81,20 @@ def main():
 
     prev_response = ""
 
-    # Delete existing cache directory if it exists and create a new one
-    if os.path.exists(CACHE_DIR):
-        shutil.rmtree(CACHE_DIR)
-    os.makedirs(CACHE_DIR, exist_ok=True)
+    # Create timestamped cache directory
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    if "claude" in args.model_name:
+        cache_dir = os.path.join(BASE_CACHE_DIR, f"{timestamp}_{args.episode_name}_{args.modality}_{args.api_provider}_{args.model_name}_{args.thinking}")
+    else:
+        cache_dir = os.path.join(BASE_CACHE_DIR, f"{timestamp}_{args.episode_name}_{args.modality}_{args.api_provider}_{args.model_name}")
+    
+    # Create the cache directory if it doesn't exist
+    os.makedirs(cache_dir, exist_ok=True)
+    
+    # Also ensure the base cache directory exists (for backward compatibility)
+    os.makedirs(BASE_CACHE_DIR, exist_ok=True)
+    
+    print(f"Using cache directory: {cache_dir}")
 
     thinking_bool = str2bool(args.thinking)
 
@@ -94,7 +106,8 @@ def main():
         prev_response,
         thinking=thinking_bool,
         modality=args.modality,
-        episode_name = args.episode_name
+        episode_name=args.episode_name,
+        cache_dir=cache_dir
     )
     decision_state = None
 
@@ -122,7 +135,8 @@ def main():
                             thinking=thinking_bool,
                             modality=args.modality,
                             episode_name=args.episode_name,
-                            decision_state=decision_state
+                            decision_state=decision_state,
+                            cache_dir=cache_dir
                         )
                     )
                     if i < args.num_threads - 1:  # Don't sleep after the last thread
@@ -154,7 +168,8 @@ def main():
                         args.modality,
                         args.episode_name,
                         dialog,
-                        skip_dialogs
+                        skip_dialogs,
+                        cache_dir=cache_dir
                     )
                     
                     if skip_result:
@@ -252,7 +267,8 @@ def main():
             print("="*70 + "\n")
             
             # Log the final decision
-            log_game_event(f"Final Decision - State: {chosen_game_state}, Move: {chosen_move}, Thought: {chosen_thought}, Dialog: {chosen_dialog}, Evidence: {chosen_evidence}, Scene: {chosen_scene[:150]}...")
+            log_game_event(f"Final Decision - State: {chosen_game_state}, Move: {chosen_move}, Thought: {chosen_thought}, Dialog: {chosen_dialog}, Evidence: {chosen_evidence}, Scene: {chosen_scene[:150]}...", 
+                          cache_dir=cache_dir)
 
             # Perform the chosen move
             perform_move(chosen_move)
@@ -274,7 +290,8 @@ def main():
                 prev_response,
                 thinking=thinking_bool,
                 modality=args.modality,
-                episode_name=args.episode_name
+                episode_name=args.episode_name,
+                cache_dir=cache_dir
             )
 
             # Record presented evidence into long-term memory as dialog format
@@ -291,7 +308,8 @@ def main():
                     thinking=thinking_bool,
                     modality=args.modality,
                     episode_name=args.episode_name,
-                    dialog=presentation_dialog
+                    dialog=presentation_dialog,
+                    cache_dir=cache_dir
                 )
             if dialog == {
                     "name": "Mia",
@@ -311,7 +329,8 @@ def main():
                     thinking=thinking_bool,
                     modality=args.modality,
                     episode_name=args.episode_name,
-                    evidence=evidence_new
+                    evidence=evidence_new,
+                    cache_dir=cache_dir
                 )
                 dialog_new = {
                     "name": "Phoenix",
@@ -324,7 +343,8 @@ def main():
                     prev_response,
                     thinking=thinking_bool,
                     modality=args.modality,
-                    dialog=dialog_new 
+                    dialog=dialog_new,
+                    cache_dir=cache_dir
                 )
 
 
