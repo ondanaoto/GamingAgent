@@ -92,7 +92,10 @@ def vision_evidence_worker(system_prompt, api_provider, model_name, modality, th
         response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-    prompt_message = convert_string_to_messsage(prompt)
+    if "claude" in model_name:
+        prompt_message = convert_string_to_messsage(prompt)
+    else:
+        prompt_message = prompt
     # Update completion in cost data
     cost_data = calculate_all_costs_and_tokens(
         prompt=prompt_message,
@@ -217,7 +220,10 @@ def vision_worker(system_prompt, api_provider, model_name,
         response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-    prompt_message = convert_string_to_messsage(prompt)
+    if "claude" in model_name:
+        prompt_message = convert_string_to_messsage(prompt)
+    else:
+        prompt_message = prompt
     # Update completion in cost data
     cost_data = calculate_all_costs_and_tokens(
         prompt=prompt_message,
@@ -591,7 +597,10 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
             response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
         else:
             raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-        prompt_message = convert_string_to_messsage(prompt)
+        if "claude" in model_name:
+            prompt_message = convert_string_to_messsage(prompt)
+        else:
+            prompt_message = prompt
         # Update completion in cost data
         cost_data = calculate_all_costs_and_tokens(
             prompt=prompt_message,
@@ -608,7 +617,6 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
             output_cost=float(cost_data["completion_cost"]),
             game_name="ace_attorney",
             input_image_tokens=cost_data.get("image_tokens", 0),
-            model_name=model_name,
             cache_dir=cache_dir
         )
 
@@ -1176,7 +1184,10 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
         response = gemini_completion(system_prompt, model_name, base64_image, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-    prompt_message = convert_string_to_messsage(prompt)
+    if "claude" in model_name:
+        prompt_message = convert_string_to_messsage(prompt)
+    else:
+        prompt_message = prompt
     # Update completion in cost data
     cost_data = calculate_all_costs_and_tokens(
         prompt=prompt_message,
@@ -1193,7 +1204,6 @@ def vision_only_reasoning_worker(system_prompt, api_provider, model_name,
         output_cost=float(cost_data["completion_cost"]),
         game_name="ace_attorney",
         input_image_tokens=cost_data.get("image_tokens", 0),
-        model_name=model_name,
         cache_dir=cache_dir
     )
 
