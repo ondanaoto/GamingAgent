@@ -487,10 +487,11 @@ def reasoning_worker(options, system_prompt, api_provider, model_name, game_stat
         * If you don't find a contradiction or need more context:
             - Use 'l' to press the witness for more details
             - Or use 'z' to move to the next statement
-
         - If there are on-screen decision options (like "Yes", "No", "Press", "Present"), you must:
             * Use `'down'` to navigate between them
             * Use `'z'` to confirm the currently highlighted option
+        * If you don't find a contradiction but the evidence window is mistakely opened:
+            - Use 'b' to close the evidence window
 
         Additional Rules:
         - The evidence window will auto-close after presenting

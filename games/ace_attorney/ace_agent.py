@@ -93,7 +93,6 @@ def main():
     
     # Also ensure the base cache directory exists (for backward compatibility)
     os.makedirs(BASE_CACHE_DIR, exist_ok=True)
-    
     print(f"Using cache directory: {cache_dir}")
 
     thinking_bool = str2bool(args.thinking)

@@ -1,0 +1,21 @@
+{
+  "Turnabout_Sisters_part1": {
+    "Case_Transcript": [
+      "Gumshoe: After securing the suspect, I examined the scene of the crime with my own eyes",
+      "GUMSHOE: After securing the suspect, I examined the scene of the crime with my own eyes.",
+      "Gumshoe: After securing the suspect, I examined the scene of the crime with my own eyes.",
+      "GUMSHOE: After securing the suspect, I examined the scene of the crime with my own eyes"
+    ],
+    "evidences": [],
+    "prev_responses": [
+      "game_state: Cross-Examination\nmove: l\nthought: There’s no obvious contradiction yet, so I’ll press Gumshoe for more details.",
+      "game_state: Cross-Examination\nmove: l\nthought: I don’t see a clear contradiction just yet, so I’ll press Gumshoe for more details.",
+      "game_state: Cross-Examination\nmove: l\nthought: There doesn’t appear to be a direct contradiction yet, so I’ll press Gumshoe for more details.",
+      "game_state: Cross-Examination\nmove: l\nthought: There’s no obvious contradiction here, so I’ll press Gumshoe for more details.",
+      "game_state: Cross-Examination\nmove: l\nthought: There’s no direct contradiction here, so I’ll press him for more details.",
+      "game_state: Cross-Examination\nmove: l\nthought: There’s no clear contradiction yet, so I’ll press Gumshoe for more details.",
+      "game_state: Cross-Examination\nmove: l\nthought: There’s no obvious contradiction here. I’ll press Gumshoe for more details.",
+      "game_state: Cross-Examination\nmove: z\nthought: There’s no clear contradiction in this statement, so I’ll proceed to the next one."
+    ]
+  }
+}
