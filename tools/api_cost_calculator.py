@@ -198,10 +198,19 @@ def calculate_cost_by_tokens(num_tokens: int, model: str, token_type: str) -> De
             Double-check your spelling, or submit an issue/PR"""
         )
 
-    cost_per_token_key = (
-        "input_cost_per_token" if token_type == "input" else "output_cost_per_token"
-    )
     cost_per_token = TOKEN_COSTS[model][cost_per_token_key]
+
+    if "gemini-2.5" in model and num_tokens > 200000:
+        cost_per_token_key = (
+            "input_cost_per_token_above_200k_tokens" if token_type == "input" else "output_cost_per_token_above_200k_tokens"
+        )
+    else:
+        cost_per_token_key = (
+            "input_cost_per_token" if token_type == "input" else "output_cost_per_token"
+        )
+    
+    cost_per_token = TOKEN_COSTS[model][cost_per_token_key]
+
 
     return Decimal(str(cost_per_token)) * Decimal(num_tokens)
 

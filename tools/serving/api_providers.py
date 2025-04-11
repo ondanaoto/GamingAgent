@@ -4,6 +4,7 @@ from openai import OpenAI
 import anthropic
 import google.generativeai as genai
 from google.generativeai import types
+from together import Together
 
 def anthropic_completion(system_prompt, model_name, base64_image, prompt, thinking=False):
     print(f"anthropic vision-text activated... thinking: {thinking}")
@@ -554,5 +555,48 @@ def deepseek_text_reasoning_completion(system_prompt, model_name, prompt):
             content += chunk.choices[0].delta.content
     
     # generated_str = response.choices[0].message.content
-    print(content)
     return content
+
+
+def together_ai_completion(system_prompt, model_name, prompt, base64_image=None, temperature=0):
+    client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
+    if base64_image is not None:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{base64_image}"}
+                        },
+                        {
+                            "type": "text",
+                            "text": prompt
+                        }
+                    ]
+                }
+            ],
+            temperature=temperature
+        )
+    else:
+        response = client.chat.completions.create(
+            model="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        }
+                    ]
+                }
+            ],
+            temperature=temperature
+        )
+
+    generated_str = response.choices[0].message.content
+     
+    return generated_str
