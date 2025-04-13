@@ -83,10 +83,12 @@ def main():
 
     # Create timestamped cache directory
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Handle model names with forward slashes
+    model_name_for_cache = args.model_name.split('/')[-1] if '/' in args.model_name else args.model_name
     if "claude" in args.model_name:
-        cache_dir = os.path.join(BASE_CACHE_DIR, f"{timestamp}_{args.episode_name}_{args.modality}_{args.api_provider}_{args.model_name}_{args.thinking}")
+        cache_dir = os.path.join(BASE_CACHE_DIR, f"{timestamp}_{args.episode_name}_{args.modality}_{args.api_provider}_{model_name_for_cache}_{args.thinking}")
     else:
-        cache_dir = os.path.join(BASE_CACHE_DIR, f"{timestamp}_{args.episode_name}_{args.modality}_{args.api_provider}_{args.model_name}")
+        cache_dir = os.path.join(BASE_CACHE_DIR, f"{timestamp}_{args.episode_name}_{args.modality}_{args.api_provider}_{model_name_for_cache}")
     
     # Create the cache directory if it doesn't exist
     os.makedirs(cache_dir, exist_ok=True)

@@ -10640,7 +10640,7 @@
         ],
         "source": "https://cloud.google.com/vertex-ai/generative-ai/pricing"
     },
-    "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": {
+    "meta-llama/llama-4-maverick-17b-128e-instruct-fp8": {
         "max_tokens": 1048576,
         "max_input_tokens": 1048576,
         "max_output_tokens": 1048576,

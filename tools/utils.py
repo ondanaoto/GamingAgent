@@ -14,7 +14,7 @@ from PIL import Image
 import numpy as np
 import json
 import argparse
-
+from pathlib import Path
 
 
 def encode_image(image_path):
@@ -651,11 +651,14 @@ def log_request_cost(num_input, num_output, input_cost, output_cost, game_name, 
         input_image_tokens (int, optional): Number of image tokens (default: 0)
         cache_dir (str): Base cache directory (default: "cache")
     """
-    # Create game-specific cache directory
+    # Check and create base cache directory
     os.makedirs(cache_dir, exist_ok=True)
-    
+
+    # Handle model names with forward slashes and sanitize for file paths
+    model_name = model_name.lower().split('/')[-1] if '/' in model_name else model_name.lower()
+
     # Create log file path
-    log_file = os.path.join(cache_dir, f"{game_name}_{model_name}_api_costs.log")
+    log_file = os.path.join(cache_dir, f"{game_name}_api_costs.log")
     
     # Calculate text tokens
     input_text_tokens = num_input - input_image_tokens

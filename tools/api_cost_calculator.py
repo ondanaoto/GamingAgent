@@ -282,6 +282,7 @@ def calculate_completion_cost(completion: str, model: str) -> Decimal:
     Decimal('0.000014')
     """
     model = strip_ft_model_name(model)
+    model = model.lower()
     if model not in TOKEN_COSTS:
         raise KeyError(
             f"""Model {model} is not implemented.
