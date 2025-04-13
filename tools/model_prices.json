@@ -10639,5 +10639,36 @@
             "text"
         ],
         "source": "https://cloud.google.com/vertex-ai/generative-ai/pricing"
+    },
+    "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": {
+        "max_tokens": 1048576,
+        "max_input_tokens": 1048576,
+        "max_output_tokens": 1048576,
+        "input_cost_per_token": 0.00000027,
+        "output_cost_per_token": 0.00000085,
+        "litellm_provider": "meta-llama",
+        "mode": "chat",
+        "supports_tool_choice": true,
+        "supports_multimodal": true,
+        "supported_languages": [
+            "ar",
+            "en",
+            "fr",
+            "de",
+            "hi",
+            "id",
+            "it",
+            "pt",
+            "es",
+            "tl",
+            "th",
+            "vi"
+        ],
+        "parameters": 17000000000,
+        "total_parameters": 400000000000,
+        "architecture": "128-expert MoE",
+        "quantization": "FP8",
+        "knowledge_cutoff": "2024-08",
+        "source": "https://ai.meta.com/llama/"
     }
 }
