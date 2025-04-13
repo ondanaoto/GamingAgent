@@ -1051,10 +1051,10 @@ def check_end_statement(dialog, episode_name):
             dialog_entry = f"{dialog['name']}: {dialog['text']}"
         else:
             dialog_entry = str(dialog)
-            
-        end_statement = skip_conversations.get(episode_name, {}).get("end_statement", "")
+
+        end_statements = skip_conversations.get(episode_name, {}).get("end_statements", [])
         
-        return dialog_entry == end_statement
+        return dialog_entry in end_statements
     except Exception as e:
         print(f"[ERROR] Failed to check end statement: {e}")
         return False
