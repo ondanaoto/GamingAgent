@@ -455,6 +455,8 @@ def calculate_all_costs_and_tokens(
     >>> calculate_all_costs_and_tokens(prompt, completion, "gpt-3.5-turbo")
     {'prompt_cost': Decimal('0.0000030'), 'prompt_tokens': 2, 'completion_cost': Decimal('0.000014'), 'completion_tokens': 7}
     """
+    if model == "gemini-2.5-pro-preview-03-25":
+        model = "gemini-2.5-pro-exp-03-25"
     prompt_cost = calculate_prompt_cost(prompt, model)
     completion_cost = calculate_completion_cost(completion, model)
     prompt_tokens = (

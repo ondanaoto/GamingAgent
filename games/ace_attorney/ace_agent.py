@@ -91,10 +91,10 @@ def main():
         cache_dir = os.path.join(BASE_CACHE_DIR, f"{timestamp}_{args.episode_name}_{args.modality}_{args.api_provider}_{model_name_for_cache}")
     
     # Create the cache directory if it doesn't exist
-    os.makedirs(cache_dir, exist_ok=True)
-    # cache_dir = "cache/ace_attorney/20250411_121623_The_First_Turnabout_vision-text_openai_o1-2024-12-17"
-    # Also ensure the base cache directory exists (for backward compatibility)
     os.makedirs(BASE_CACHE_DIR, exist_ok=True)
+    os.makedirs(cache_dir, exist_ok=True)
+    # cache_dir = "cache/ace_attorney/20250413_151419_The_First_Turnabout_vision-text_gemini_gemini-2.5-pro-exp-03-25"
+    # Also ensure the base cache directory exists (for backward compatibility)
     print(f"Using cache directory: {cache_dir}")
 
     thinking_bool = str2bool(args.thinking)
