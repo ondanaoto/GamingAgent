@@ -81,7 +81,7 @@ def game_2048_worker(system_prompt, api_provider, model_name,
     os.makedirs(CACHE_DIR, exist_ok=True)
     screenshot_path = os.path.abspath(os.path.join(CACHE_DIR, "2048_screenshot.png"))
 
-    annotate_image_path, grid_annotation_path, annotate_cropped_image_path = get_annotate_img(screenshot_path, crop_left=0, crop_right=0, crop_top=0, crop_bottom=0, grid_rows=4, grid_cols=4,enable_digit_label=False, cache_dir=CACHE_DIR, line_thickness=3, black=True)
+    annotate_image_path, grid_annotation_path, annotate_cropped_image_path = get_annotate_img(screenshot_path, crop_left=0, crop_right=0, crop_top=0, crop_bottom=0, grid_rows=4, grid_cols=4,enable_digit_label=False, cache_dir=CACHE_DIR, black=True)
 
     table = game_2048_read_worker(system_prompt, api_provider, model_name, annotate_cropped_image_path, thinking=thinking, modality=modality)
 

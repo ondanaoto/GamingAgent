@@ -11,11 +11,18 @@ import cv2
 import numpy as np
 import json
 import argparse
+import time
 
 def encode_image(image_path):
     """
     Read a file from disk and return its contents as a base64-encoded string.
     """
+    time.sleep(0.5)
+    image = cv2.imread(image_path)
+    if image is None:
+        raise ValueError(f"Cannot read image file at path: {image_path}")
+
+    # Proceed with base64 encoding
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
