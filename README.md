@@ -105,7 +105,7 @@
     </tr>
     <tr>
       <td>
-        <img src="assets/ace_attorney/ace_attorney_side_by_side.gif" width="400" height="400">
+        <img src="assets/ace_attorney/ace_attorney_side_by_side.gif" width="600" height="400">
       </td>
     </tr>
   </table>
