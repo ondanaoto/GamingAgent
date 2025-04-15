@@ -7,12 +7,15 @@ import numpy as np
 import concurrent.futures
 import re
 import cv2
+import sys
+import platform
+from PIL import Image
 
 import numpy as np
 import json
 import argparse
+from pathlib import Path
 import time
-
 def encode_image(image_path):
     """
     Read a file from disk and return its contents as a base64-encoded string.
@@ -60,7 +63,7 @@ def extract_planning_prompt(generated_str):
     {text to be extracted}
     ```
 
-    and returns the text inside. If it doesn’t find it, returns an empty string.
+    and returns the text inside. If it doesn't find it, returns an empty string.
     """
     pattern = r"```planning prompt\s*(.*?)\s*```"
     match = re.search(pattern, generated_str, re.DOTALL)
@@ -384,3 +387,213 @@ def str2bool(value):
         return False
     else:
         raise argparse.ArgumentTypeError("Boolean value expected (true/false).")
+
+def get_platform():
+    """
+    Detects the current operating system platform.
+    Returns: 'windows', 'mac', or 'other'
+    """
+    system = platform.system().lower()
+    if 'windows' in system:
+        return 'windows'
+    elif 'darwin' in system:
+        return 'mac'
+    else:
+        return 'other'
+
+def find_game_window():
+    """
+    Find the Phoenix Wright game window using case-insensitive substring matching.
+    Returns the window handle if found, None otherwise.
+    """
+    import win32gui
+    
+    def window_enum_callback(hwnd, result):
+        window_title = win32gui.GetWindowText(hwnd).lower()
+        if "phoenix wright" in window_title:
+            result.append(hwnd)
+            
+    result = []
+    win32gui.EnumWindows(window_enum_callback, result)
+    return result[0] if result else None
+
+def calculate_scale_multiplier(width, height, target_min=768, target_max=1500):
+    """
+    Calculate the scale multiplier to fit within target dimensions while maintaining aspect ratio.
+    """
+    # Calculate multipliers that would reach each target
+    width_multiplier = target_max / width
+    height_multiplier = target_max / height
+    min_multiplier = target_min / min(width, height)
+    
+    # Use the smallest multiplier that satisfies both conditions
+    scale = min(width_multiplier, height_multiplier, min_multiplier)
+    
+    # Ensure we don't make the image too large
+    if scale < 1:
+        scale = 1
+        
+    return scale
+
+def capture_game_window(image_name, window_name, cache_dir):
+    """
+    Captures a screenshot of the specified game window.
+    Args:
+        image_name (str): Name of the output image file (e.g., 'current_screen.png')
+        window_name (str): Name of the window to capture (e.g., 'Phoenix Wright: Ace Attorney Trilogy')
+        cache_dir (str): Directory to save the screenshot
+    Returns: Path to the saved screenshot
+    """
+    platform_type = get_platform()
+    screenshot = None
+    
+    if platform_type == 'windows':
+        try:
+            import win32gui
+            import win32ui
+            from ctypes import windll
+            
+            # Find the window using flexible matching
+            hwnd = find_game_window()
+            if not hwnd:
+                print("Phoenix Wright window not found, falling back to pyautogui")
+                screenshot = pyautogui.screenshot()
+            else:
+                print(f"Found game window: {win32gui.GetWindowText(hwnd)}")
+                
+                # Get window dimensions
+                left, top, right, bottom = win32gui.GetWindowRect(hwnd)
+                width = right - left
+                height = bottom - top
+                
+                # Create device context and bitmap
+                hwndDC = win32gui.GetWindowDC(hwnd)
+                mfcDC = win32ui.CreateDCFromHandle(hwndDC)
+                saveDC = mfcDC.CreateCompatibleDC()
+                
+                # Create bitmap and select it into DC
+                saveBitMap = win32ui.CreateBitmap()
+                saveBitMap.CreateCompatibleBitmap(mfcDC, width, height)
+                saveDC.SelectObject(saveBitMap)
+                
+                # Copy window content
+                result = windll.user32.PrintWindow(hwnd, saveDC.GetSafeHdc(), 2)
+                
+                # Convert to PIL Image
+                bmpinfo = saveBitMap.GetInfo()
+                bmpstr = saveBitMap.GetBitmapBits(True)
+                screenshot = Image.frombuffer(
+                    'RGB',
+                    (bmpinfo['bmWidth'], bmpinfo['bmHeight']),
+                    bmpstr, 'raw', 'BGRX', 0, 1)
+                
+                # Clean up
+                win32gui.DeleteObject(saveBitMap.GetHandle())
+                saveDC.DeleteDC()
+                mfcDC.DeleteDC()
+                win32gui.ReleaseDC(hwnd, hwndDC)
+            
+        except ImportError:
+            print("Windows dependencies not found, falling back to pyautogui")
+            screenshot = pyautogui.screenshot()
+    else:
+        # For Mac and other platforms, use pyautogui
+        screen_width, screen_height = pyautogui.size()
+        region = (0, 0, screen_width, screen_height)
+        screenshot = pyautogui.screenshot(region=region)
+        
+        os.makedirs(cache_dir, exist_ok=True)
+        screenshot_path = os.path.join(cache_dir, "screenshot.png")
+        screenshot.save(screenshot_path)
+
+        annotate_image_path, grid_annotation_path, annotate_cropped_image_path= get_annotate_img(
+            screenshot_path,
+            crop_left=0,
+            crop_right=710,
+            crop_top=250,
+            crop_bottom=300,
+            grid_rows=1,
+            grid_cols=1,
+            cache_dir=cache_dir
+        )
+        screenshot = Image.open(annotate_cropped_image_path)
+    
+    if screenshot:
+        # Get current dimensions
+        current_width, current_height = screenshot.size
+        
+        # Calculate scale multiplier
+        scale = calculate_scale_multiplier(current_width, current_height)
+        
+        # Calculate new dimensions
+        new_width = int(current_width * scale)
+        new_height = int(current_height * scale)
+        
+        print(f"Scaling image from {current_width}x{current_height} to {new_width}x{new_height} (scale: {scale:.2f})")
+        
+        # Resize the image
+        if scale > 1:  # Only resize if we're scaling up
+            screenshot = screenshot.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        
+        # Save the screenshot in the specified cache directory
+        os.makedirs(cache_dir, exist_ok=True)
+        screenshot_path = os.path.join(cache_dir, image_name)
+        screenshot.save(screenshot_path)
+        return screenshot_path
+    
+    return None
+
+def log_game_event(log_text, game_name="ace_attorney", cache_dir="cache"):
+    """Logs game events with timestamp to a dedicated log file."""
+    os.makedirs(os.path.join(cache_dir, game_name), exist_ok=True)
+    with open(os.path.join(cache_dir, game_name, f"{game_name}.log"), "a", encoding="utf-8") as f:
+        f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {log_text}\n")
+
+
+def log_request_cost(num_input, num_output, input_cost, output_cost, game_name, model_name,
+                    input_image_tokens=0, cache_dir="cache"):
+    """
+    Logs API request costs including token counts and costs.
+    
+    Args:
+        num_input (int): Total number of input tokens
+        num_output (int): Number of output tokens
+        input_cost (float): Total input cost
+        output_cost (float): Total output cost
+        game_name (str): Name of the game
+        input_image_tokens (int, optional): Number of image tokens (default: 0)
+        cache_dir (str): Base cache directory (default: "cache")
+    """
+    # Check and create base cache directory
+    os.makedirs(cache_dir, exist_ok=True)
+
+    # Handle model names with forward slashes and sanitize for file paths
+    model_name = model_name.lower().split('/')[-1] if '/' in model_name else model_name.lower()
+
+    # Create log file path
+    log_file = os.path.join(cache_dir, f"{game_name}_api_costs.log")
+    
+    # Calculate text tokens
+    input_text_tokens = num_input - input_image_tokens
+    
+    # Format log entry
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = (
+        f"[{timestamp}]\n"
+        f"Game: {game_name}\n"
+        f"Model: {model_name}\n"
+        f"Total Input Tokens: {num_input}\n"
+        f"Input Text Tokens: {input_text_tokens}\n"
+        f"Input Image Tokens: {input_image_tokens}\n"
+        f"Output Tokens: {num_output}\n"
+        f"Total Input Cost: ${input_cost:.6f}\n"
+        f"Total Output Cost: ${output_cost:.6f}\n"
+        f"Total Cost: ${input_cost + output_cost:.6f}\n"
+        f"{'-'*50}\n"
+    )
+    
+    # Write to log file
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(log_entry)
+    
+    return log_file

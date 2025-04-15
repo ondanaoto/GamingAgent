@@ -12,6 +12,7 @@
   - [2048](#2048)
   - [Tetris](#tetris)
   - [Candy Crush](#candy-crush)
+  - [Ace Attorney](#ace-attorney)
 
 ## Gallery
 
@@ -90,6 +91,21 @@
     <tr>
       <td>
         <img src="assets/candy/candy_crush_o3_mini.gif" width="500" height="300">
+      </td>
+    </tr>
+  </table>
+</div>
+
+### Ace Attorney AI Gameplay Comparison
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><b>Ace Attorney Gameplays</b></td>
+    </tr>
+    <tr>
+      <td>
+        <img src="assets/ace_attorney/ace_attorney_side_by_side.gif" width="400" height="400">
       </td>
     </tr>
   </table>
@@ -377,4 +393,56 @@ The example below demonstrates Level 1 gameplay on the online version of Candy C
 #### Build Your Own Policy
 
 The Candy Crush game agent has two workers: one extracts board information from images and converts it into text, and the other plays the game. The AI agent follows a simple prompt to play Candy Crush but performs surprisingly well. Feel free to create and implement your own policy to improve its gameplay.
+
+### Ace Attorney
+
+Ace Attorney is a visual novel adventure game where players take on the role of a defense attorney, gathering evidence and cross-examining witnesses to prove their client's innocence.
+
+#### Launch Gaming Agent
+
+1. Launch the agent with:
+```bash
+python games/ace_attorney/ace_agent.py
+```
+
+#### Command Options
+```
+--api_provider: API provider to use (e.g., "anthropic").
+
+--model_name: Model name (e.g., "claude-3-7-sonnet-20250219").
+
+--modality: Modality used, choice of ["text-only", "vision-text", "vision-only"].
+
+--thinking: Whether to use deep thinking (Special for anthropic models).
+
+--episode_name: Name of the current episode being played (default: "The_First_Turnabout").
+
+--num_threads: Number of parallel threads to launch (default: 1).
+```
+
+#### Features
+
+The Ace Attorney agent includes several specialized workers:
+
+- Evidence Worker: Record evidence in the game
+- Vision-Only Worker: Processes visual information from the game
+- Short-Term Memory Worker: Maintains recent game context
+- Long-Term Memory Worker: Stores game conversations and evidences
+- Memory Retrieval Worker: Combine short-term memory and long-term memory together
+
+The agent uses a majority voting system to make decisions and includes special handling for:
+- Skip conversations
+- End statements
+- Evidence presentation
+- Dialog management
+
+#### Build Your Own Policy
+
+The agent's architecture allows for customization of:
+- Decision-making logic
+- Memory management
+- Evidence handling
+- Dialog processing
+
+You can modify the workers in `games/ace_attorney/workers.py` to implement your own strategies for case-solving and evidence management.
 
