@@ -1,7 +1,10 @@
 import random
+from typing import Literal
 
 
-def move(direction, board):
+def move(
+    direction: Literal["w", "s", "a", "d"], board: list[list[int]]
+) -> list[list[int]]:
     """
     Call functions to move & merge in the specified direction.
 
@@ -21,7 +24,9 @@ def move(direction, board):
         return moveRight(board)
 
 
-def checkGameStatus(board, max_tile=2048):
+def checkGameStatus(
+    board: list[list[int]], max_tile=2048
+) -> Literal["WIN", "LOSE", "PLAY"]:
     """
     Update the game status by checking if the max. tile has been obtained.
 
@@ -53,7 +58,7 @@ def checkGameStatus(board, max_tile=2048):
         return "PLAY"
 
 
-def fillTwoOrFour(board, iter=1):
+def fillTwoOrFour(board: list[list[int]], iter=1) -> list[list[int]]:
     """
     Randomly fill 2 or 4 in available spaces on the board.
 
@@ -77,7 +82,7 @@ def fillTwoOrFour(board, iter=1):
     return board
 
 
-def moveLeft(board):
+def moveLeft(board: list[list[int]]) -> list[list[int]]:
     """
     Move and merge tiles to the left.
 
@@ -102,7 +107,7 @@ def moveLeft(board):
     return board
 
 
-def moveUp(board):
+def moveUp(board: list[list[int]]) -> list[list[int]]:
     """
     Move ane merge tiles upwards.
 
@@ -117,7 +122,7 @@ def moveUp(board):
     return board
 
 
-def moveRight(board):
+def moveRight(board: list[list[int]]) -> list[list[int]]:
     """
     Move and merge tiles to the right.
 
@@ -142,7 +147,7 @@ def moveRight(board):
     return board
 
 
-def moveDown(board):
+def moveDown(board: list[list[int]]) -> list[list[int]]:
     """
     Move and merge tiles downwards.
 
@@ -158,7 +163,7 @@ def moveDown(board):
     return board
 
 
-def shiftLeft(board):
+def shiftLeft(board: list[list[int]]) -> None:
     """
     Perform tile shift to the left.
 
@@ -176,7 +181,7 @@ def shiftLeft(board):
         board[i].extend([0] * (4 - count))
 
 
-def shiftRight(board):
+def shiftRight(board: list[list[int]]) -> None:
     """
     Perform tile shift to the right.
 
@@ -194,7 +199,7 @@ def shiftRight(board):
         board[i].extend(nums)
 
 
-def rotateLeft(board):
+def rotateLeft(board: list[list[int]]) -> list[list[int]]:
     """
     90 degree counter-clockwise rotation.
 
@@ -207,7 +212,7 @@ def rotateLeft(board):
     return b
 
 
-def rotateRight(board):
+def rotateRight(board: list[list[int]]) -> list[list[int]]:
     """
     270 degree counter-clockwise rotation.
 

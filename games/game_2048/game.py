@@ -26,7 +26,13 @@ my_font = pygame.font.SysFont(c["font"], c["font_size"], bold=True)
 WHITE = (255, 255, 255)
 
 
-def winCheck(board, status, theme, text_col, size):
+def winCheck(
+    board: list[list[int]],
+    status: Literal["WIN", "LOSE", "PLAY"],
+    theme,
+    text_col,
+    size,
+) -> tuple[list[list[int]], Literal["WIN", "LOSE", "PLAY"]]:
     """
     Check game status and display win/lose result.
 
@@ -88,7 +94,7 @@ def winCheck(board, status, theme, text_col, size):
     return board, status
 
 
-def newGame(theme, text_col, size):
+def newGame(theme, text_col, size) -> list[list[int]]:
     """
     Start a new game by resetting the board.
 
@@ -128,7 +134,7 @@ def newGame(theme, text_col, size):
     return board
 
 
-def restart(board, theme, text_col, size):
+def restart(board, theme, text_col, size) -> list[list[int]]:
     """
     Restart the game immediately when 'N' is pressed.
     """
