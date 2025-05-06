@@ -1,24 +1,27 @@
 import time
 import os
 import pyautogui
-import numpy as np
 
-from tools.utils import encode_image, log_output, extract_python_code, get_annotate_img
-from tools.serving.api_providers import anthropic_completion, openai_completion, gemini_completion, anthropic_text_completion, gemini_text_completion, openai_text_reasoning_completion, openai_vision_reasoning_completion, deepseek_text_reasoning_completion
+from tools.utils import encode_image, log_output, get_annotate_img
+from tools.serving.api_providers import (
+    anthropic_completion,
+    openai_completion,
+    gemini_completion,
+    anthropic_text_completion,
+    gemini_text_completion,
+    openai_text_reasoning_completion,
+    openai_vision_reasoning_completion,
+    deepseek_text_reasoning_completion,
+)
 
 cache_dir = "cache/candy_crush"
 
-import time
-import os
-import pyautogui
-import numpy as np
 
-from tools.utils import encode_image, log_output, extract_python_code, get_annotate_img
-from tools.serving.api_providers import anthropic_completion, openai_completion, gemini_completion
 import re
 import json
 
 CACHE_DIR = "cache/candy_crush"
+
 
 def log_move_and_thought(move, thought, latency):
     """
@@ -26,23 +29,26 @@ def log_move_and_thought(move, thought, latency):
     The log is appended with UTF-8 encoding.
     """
     log_file_path = os.path.join(CACHE_DIR, "candy_crush_moves.log")
-    
+
     log_entry = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Move: {move}, Thought: {thought}, Latency: {latency:.2f} sec\n"
-    
+
     try:
         with open(log_file_path, "a", encoding="utf-8") as log_file:
             log_file.write(log_entry)
     except Exception as e:
         print(f"[ERROR] Failed to write log entry: {e}")
 
-def candy_crush_read_worker(system_prompt, api_provider, model_name, image_path, modality, thinking):
+
+def candy_crush_read_worker(
+    system_prompt, api_provider, model_name, image_path, modality, thinking
+):
     base64_image = encode_image(image_path)
 
     # Provide text table for o3-min due to limit to text-only input
     if model_name == "o3-mini-2025-01-31":
         api_provider = "anthropic"
         model_name = "claude-3-7-sonnet-20250219"
-    
+
     # Construct prompt for LLM
     prompt = (
         "Extract the Candy Crush board layout from the provided image. "
@@ -52,19 +58,25 @@ def candy_crush_read_worker(system_prompt, api_provider, model_name, image_path,
         "Each row should reflect the board layout. "
         "Example format: \n1: blue sphere candy (0, 0) | 2: green square candy (0, 1)| 3: red bean candy (0, 2)... \n8: orange jelly candy (1,0) | 9: yellow teardrop candy (1, 1)| 10: purple cluster candy (1, 2) "
     )
-    
+
     # Call LLM API based on provider
-    if api_provider == "anthropic" and modality=="text-only":
-        response = anthropic_text_completion(system_prompt, model_name, prompt, thinking)
+    if api_provider == "anthropic" and modality == "text-only":
+        response = anthropic_text_completion(
+            system_prompt, model_name, prompt, thinking
+        )
     elif api_provider == "anthropic":
-        response = anthropic_completion(system_prompt, model_name, base64_image, prompt, thinking)
-    elif api_provider == "openai" and "o3" in model_name and modality=="text-only":
+        response = anthropic_completion(
+            system_prompt, model_name, base64_image, prompt, thinking
+        )
+    elif api_provider == "openai" and "o3" in model_name and modality == "text-only":
         response = openai_text_reasoning_completion(system_prompt, model_name, prompt)
     elif api_provider == "openai" and "o1" in model_name:
-        response = openai_vision_reasoning_completion(system_prompt, model_name, base64_image, prompt)
+        response = openai_vision_reasoning_completion(
+            system_prompt, model_name, base64_image, prompt
+        )
     elif api_provider == "openai":
         response = openai_completion(system_prompt, model_name, base64_image, prompt)
-    elif api_provider == "gemini" and modality=="text-only":
+    elif api_provider == "gemini" and modality == "text-only":
         response = gemini_text_completion(system_prompt, model_name, prompt)
     elif api_provider == "gemini":
         response = gemini_completion(system_prompt, model_name, base64_image, prompt)
@@ -72,24 +84,36 @@ def candy_crush_read_worker(system_prompt, api_provider, model_name, image_path,
         response = deepseek_text_reasoning_completion(system_prompt, model_name, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-    
+
     # Process response and format as structured board output
     structured_board = response.strip()
-    
+
     # Generate final text output
     final_output = "\nCandy Crush Board Representation:\n" + structured_board
 
     return final_output
 
 
-def candy_crush_worker(system_prompt, api_provider, model_name, modality, thinking, crop_left=700, crop_right=800, crop_top=300, crop_bottom=300, grid_rows=7, grid_cols=7, prev_response=""):
+def candy_crush_worker(
+    system_prompt,
+    api_provider,
+    model_name,
+    modality,
+    thinking,
+    crop_left=700,
+    crop_right=800,
+    crop_top=300,
+    crop_bottom=300,
+    grid_rows=7,
+    grid_cols=7,
+    prev_response="",
+):
     """
     Worker function for short-term (1 second) control in Candy Crush.
     1) Captures a screenshot of the current Candy Crush game state.
     2) Calls an LLM to generate PyAutoGUI code for the next move.
     3) Logs latency and the generated code.
     """
-
 
     # Capture a screenshot of the current game state.
     screen_width, screen_height = pyautogui.size()
@@ -102,11 +126,31 @@ def candy_crush_worker(system_prompt, api_provider, model_name, modality, thinki
 
     screenshot.save(screenshot_path)
 
-    annotate_image_path, grid_annotation_path, annotate_cropped_image_path = get_annotate_img(screenshot_path, crop_left=crop_left, crop_right=crop_right, crop_top=crop_top, crop_bottom=crop_bottom, grid_rows=grid_rows, grid_cols=grid_cols, cache_dir=CACHE_DIR, thickness = 2, black = True, font_size=0.7)
+    annotate_image_path, grid_annotation_path, annotate_cropped_image_path = (
+        get_annotate_img(
+            screenshot_path,
+            crop_left=crop_left,
+            crop_right=crop_right,
+            crop_top=crop_top,
+            crop_bottom=crop_bottom,
+            grid_rows=grid_rows,
+            grid_cols=grid_cols,
+            cache_dir=CACHE_DIR,
+            thickness=2,
+            black=True,
+            font_size=0.7,
+        )
+    )
     # side view
     # annotate_image_path, grid_annotation_path, annotate_cropped_image_path = get_annotate_img(screenshot_path, crop_left=250, crop_right=1300, crop_top=crop_top, crop_bottom=crop_bottom, grid_rows=grid_rows, grid_cols=grid_cols, cache_dir=CACHE_DIR)
-    candy_crush_text_table = candy_crush_read_worker(system_prompt, api_provider, model_name, annotate_cropped_image_path, modality="vision-text", thinking=False)
-
+    candy_crush_text_table = candy_crush_read_worker(
+        system_prompt,
+        api_provider,
+        model_name,
+        annotate_cropped_image_path,
+        modality="vision-text",
+        thinking=False,
+    )
 
     prompt = (
         f"Here is the current layout of the Candy Crush board:\n\n"
@@ -126,23 +170,28 @@ def candy_crush_worker(system_prompt, api_provider, model_name, modality, thinki
         "- Reason using board coordinates, but ensure the final output uses unique candy IDs."
     )
 
-
     base64_image = encode_image(annotate_cropped_image_path)
     start_time = time.time()
 
     print(f"Calling {model_name} api...")
     # Call the LLM API based on the selected provider.
-    if api_provider == "anthropic" and modality=="text-only":
-        response = anthropic_text_completion(system_prompt, model_name, prompt, thinking)
+    if api_provider == "anthropic" and modality == "text-only":
+        response = anthropic_text_completion(
+            system_prompt, model_name, prompt, thinking
+        )
     elif api_provider == "anthropic":
-        response = anthropic_completion(system_prompt, model_name, base64_image, prompt, thinking)
-    elif api_provider == "openai" and "o3" in model_name and modality=="text-only":
+        response = anthropic_completion(
+            system_prompt, model_name, base64_image, prompt, thinking
+        )
+    elif api_provider == "openai" and "o3" in model_name and modality == "text-only":
         response = openai_text_reasoning_completion(system_prompt, model_name, prompt)
     elif api_provider == "openai" and "o1" in model_name:
-        response = openai_vision_reasoning_completion(system_prompt, model_name, base64_image, prompt)
+        response = openai_vision_reasoning_completion(
+            system_prompt, model_name, base64_image, prompt
+        )
     elif api_provider == "openai":
         response = openai_completion(system_prompt, model_name, base64_image, prompt)
-    elif api_provider == "gemini" and modality=="text-only":
+    elif api_provider == "gemini" and modality == "text-only":
         response = gemini_text_completion(system_prompt, model_name, prompt)
     elif api_provider == "gemini":
         response = gemini_completion(system_prompt, model_name, base64_image, prompt)
@@ -159,7 +208,11 @@ def candy_crush_worker(system_prompt, api_provider, model_name, modality, thinki
     thought_match = re.search(r'thought:\s*"(.*?)"', response)
 
     if not move_match or not thought_match:
-        log_output("candy_crush_worker", f"[ERROR] Invalid LLM response: {response}", "candy_crush")
+        log_output(
+            "candy_crush_worker",
+            f"[ERROR] Invalid LLM response: {response}",
+            "candy_crush",
+        )
         return
 
     id_1, id_2 = int(move_match.group(1)), int(move_match.group(2))
@@ -175,15 +228,23 @@ def candy_crush_worker(system_prompt, api_provider, model_name, modality, thinki
         with open(grid_annotation_path, "r") as file:
             grid_data = json.load(file)
     except Exception as e:
-        log_output("candy_crush_worker", f"[ERROR] Failed to read grid annotations: {e}", "candy_crush")
+        log_output(
+            "candy_crush_worker",
+            f"[ERROR] Failed to read grid annotations: {e}",
+            "candy_crush",
+        )
         return
 
     # Find coordinates for the extracted IDs
-    pos_1 = next((entry for entry in grid_data if entry['id'] == id_1), None)
-    pos_2 = next((entry for entry in grid_data if entry['id'] == id_2), None)
+    pos_1 = next((entry for entry in grid_data if entry["id"] == id_1), None)
+    pos_2 = next((entry for entry in grid_data if entry["id"] == id_2), None)
 
     if not pos_1 or not pos_2:
-        log_output("candy_crush_worker", f"[ERROR] IDs not found in grid: {id_1}, {id_2}", "candy_crush")
+        log_output(
+            "candy_crush_worker",
+            f"[ERROR] IDs not found in grid: {id_1}, {id_2}",
+            "candy_crush",
+        )
         return
 
     x1, y1 = pos_1["x"], pos_1["y"]
@@ -200,7 +261,7 @@ def candy_crush_worker(system_prompt, api_provider, model_name, modality, thinki
     log_output(
         "candy_crush_worker",
         f"[INFO] Move executed: ({id_1}, {id_2}) | Thought: {thought_text} | Latency: {latency:.2f} sec",
-        "candy_crush"
+        "candy_crush",
     )
 
     return response

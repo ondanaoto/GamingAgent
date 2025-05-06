@@ -1,5 +1,4 @@
 import json
-import sys
 import argparse
 import pygame
 import os
@@ -16,8 +15,12 @@ c = json.load(open(constants_path, "r"))
 
 # Argument parser for width and height
 parser = argparse.ArgumentParser(description="Run 2048 Game with custom window size")
-parser.add_argument("-wd", "--width", type=int, default=DEFAULT_WIDTH, help="Set window width")
-parser.add_argument("-ht", "--height", type=int, default=DEFAULT_HEIGHT, help="Set window height")  # Changed -h to -ht
+parser.add_argument(
+    "-wd", "--width", type=int, default=DEFAULT_WIDTH, help="Set window width"
+)
+parser.add_argument(
+    "-ht", "--height", type=int, default=DEFAULT_HEIGHT, help="Set window height"
+)  # Changed -h to -ht
 args = parser.parse_args()
 
 # Set window size
