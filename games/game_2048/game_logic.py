@@ -7,6 +7,7 @@ from game import playGame
 # Default window size
 DEFAULT_WIDTH = 500
 DEFAULT_HEIGHT = 500
+DEFAULT_DIFFICULTY = 2048
 
 # Load JSON data
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +22,13 @@ parser.add_argument(
 parser.add_argument(
     "-ht", "--height", type=int, default=DEFAULT_HEIGHT, help="Set window height"
 )  # Changed -h to -ht
+parser.add_argument(
+    "-difficulty",
+    "--difficulty",
+    type=int,
+    default=DEFAULT_DIFFICULTY,
+    help="Set the tile number required to win",
+)
 args = parser.parse_args()
 
 # Set window size
@@ -31,8 +39,10 @@ pygame.init()
 size = (args.width, args.height)
 screen = pygame.display.set_mode(size)
 
+difficulty = args.difficulty
+
 # Set font according to JSON data specifications
 my_font = pygame.font.SysFont(c["font"], c["font_size"], bold=True)
 
 if __name__ == "__main__":
-    playGame("light", 2048, size)
+    playGame("light", difficulty, size)
