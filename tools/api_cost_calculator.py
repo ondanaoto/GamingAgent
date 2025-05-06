@@ -12,9 +12,7 @@ import logging
 from PIL import Image
 import math
 import google.generativeai as genai
-import os
 
-    
 
 logger = logging.getLogger(__name__)
 
@@ -135,15 +133,13 @@ def count_message_tokens(messages: List[Dict[str, str]], model: str) -> int:
     num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
     return num_tokens
 
+
 def convert_string_to_messsage(prompt: str) -> List[Dict[str, str]]:
     messages = [
         {
             "role": "user",
             "content": [
-                {
-                    "type": "text",
-                    "text": prompt
-                },
+                {"type": "text", "text": prompt},
             ],
         }
     ]
@@ -208,18 +204,18 @@ def calculate_cost_by_tokens(num_tokens: int, model: str, token_type: str) -> De
             Double-check your spelling, or submit an issue/PR"""
         )
 
-
     if "gemini-2.5" in model and num_tokens > 200000:
         cost_per_token_key = (
-            "input_cost_per_token_above_200k_tokens" if token_type == "input" else "output_cost_per_token_above_200k_tokens"
+            "input_cost_per_token_above_200k_tokens"
+            if token_type == "input"
+            else "output_cost_per_token_above_200k_tokens"
         )
     else:
         cost_per_token_key = (
             "input_cost_per_token" if token_type == "input" else "output_cost_per_token"
         )
-    
-    cost_per_token = TOKEN_COSTS[model][cost_per_token_key]
 
+    cost_per_token = TOKEN_COSTS[model][cost_per_token_key]
 
     return Decimal(str(cost_per_token)) * Decimal(num_tokens)
 
@@ -303,14 +299,15 @@ def calculate_completion_cost(completion: str, model: str) -> Decimal:
 
     return calculate_cost_by_tokens(completion_tokens, model, "output")
 
+
 def count_image_tokens(image_path: str, model: str):
     """
     Calculate the number of tokens for an image based on OpenAI, Claude, or Gemini token counting rules.
-    
+
     Args:
         image_path (str): Path to the image file
         model (str): The model name
-        
+
     Returns:
         int: Number of tokens for the image
     """
@@ -318,13 +315,13 @@ def count_image_tokens(image_path: str, model: str):
         # Open the image and get its dimensions
         with Image.open(image_path) as img:
             width, height = img.size
-            
+
             # OpenAI models
             if any(model.startswith(prefix) for prefix in ["gpt-4", "o"]):
                 # If image is smaller than or equal to 512x512, use 85 tokens
                 if width <= 512 and height <= 512:
                     return 85
-                    
+
                 # Scale to fit in 2048x2048 square while maintaining aspect ratio
                 if width > 2048 or height > 2048:
                     if width > height:
@@ -335,30 +332,32 @@ def count_image_tokens(image_path: str, model: str):
                         new_width = int(width * (2048 / height))
                 else:
                     new_width, new_height = width, height
-                    
+
                 # Scale so shortest side is 768px
                 if new_width < new_height:
                     scale = 768 / new_width
                 else:
                     scale = 768 / new_height
-                    
+
                 new_width = int(new_width * scale)
                 new_height = int(new_height * scale)
-                
+
                 # Count number of 512px squares needed
                 num_squares = math.ceil(new_width / 512) * math.ceil(new_height / 512)
-                
+
                 # Calculate total tokens: 170 tokens per square + 85 base tokens
                 total_tokens = (num_squares * 170) + 85
-                
+
                 return total_tokens
-            
+
             # Claude models
             elif any(model.startswith(prefix) for prefix in ["claude"]):
                 # Check if image needs to be resized (Claude limits)
                 if width > 8000 or height > 8000:
-                    logger.warning(f"Image exceeds Claude's maximum size of 8000x8000. It will be rejected or resized.")
-                
+                    logger.warning(
+                        "Image exceeds Claude's maximum size of 8000x8000. It will be rejected or resized."
+                    )
+
                 # If dimensions exceed 1568 on either side, it will be resized by Claude
                 if width > 1568 or height > 1568:
                     # Resize to keep aspect ratio, with longest side at 1568
@@ -366,22 +365,25 @@ def count_image_tokens(image_path: str, model: str):
                     new_width = int(width * scale)
                     new_height = int(height * scale)
                     width, height = new_width, new_height
-                
+
                 # Use Claude's token calculation formula: (width * height) / 750
                 tokens = math.ceil((width * height) / 750)
-                
+
                 # Cap at the maximum for common aspect ratios
                 if tokens > 1600:
                     tokens = 1600  # Maximum for images within Claude's optimal size
-                
-                return tokens
-            
-            # Gemini models
-            elif any(model.startswith(prefix) for prefix in ["gemini", "models/gemini"]):
-                try:
 
+                return tokens
+
+            # Gemini models
+            elif any(
+                model.startswith(prefix) for prefix in ["gemini", "models/gemini"]
+            ):
+                try:
                     # Fallback to manual calculation using Gemini 2.0 rules
-                    if "2.0" in model or any(version in model for version in ["1.5", "1.0"]):
+                    if "2.0" in model or any(
+                        version in model for version in ["1.5", "1.0"]
+                    ):
                         # Gemini 2.0 rules:
                         # - Images ≤384×384px: 258 tokens
                         # - Larger images: Split into 768×768 tiles, 258 tokens per tile
@@ -401,25 +403,27 @@ def count_image_tokens(image_path: str, model: str):
                 except (ImportError, Exception) as e:
                     logger.warning(f"Couldn't use Google's API for token counting: {e}")
                     return 258
-                    
-                
+
             # Default case for other models
             else:
-                logger.warning(f"Model {model} is not recognized for image token counting. Using minimal token count.")
+                logger.warning(
+                    f"Model {model} is not recognized for image token counting. Using minimal token count."
+                )
                 return 85
-                
+
     except Exception as e:
         logger.error(f"Error calculating image tokens: {e}")
         return 0
 
+
 def calculate_image_cost(image_path: str, model: str):
     """
     Calculate the cost of an image based on the number of tokens and model pricing.
-    
+
     Args:
         image_path (str): Path to the image file
         model (str): The model name
-        
+
     Returns:
         Decimal: The calculated cost in USD
     """
@@ -429,11 +433,12 @@ def calculate_image_cost(image_path: str, model: str):
             f"""Model {model} is not implemented.
             Double-check your spelling, or submit an issue/PR"""
         )
-        
+
     image_tokens = count_image_tokens(image_path, model)
     cost_per_token = TOKEN_COSTS[model]["input_cost_per_token"]
-    
+
     return Decimal(str(cost_per_token)) * Decimal(image_tokens)
+
 
 def calculate_all_costs_and_tokens(
     prompt: Union[List[dict], str], completion: str, model: str, image_path: str = None
@@ -472,7 +477,7 @@ def calculate_all_costs_and_tokens(
         completion_tokens = count_message_tokens(completion_list, model) - 13
     else:
         completion_tokens = count_string_tokens(completion, model)
-    
+
     if image_path:
         image_cost = calculate_image_cost(image_path, model)
         image_tokens = count_image_tokens(image_path, model)
@@ -489,5 +494,5 @@ def calculate_all_costs_and_tokens(
             "prompt_cost": prompt_cost,
             "prompt_tokens": prompt_tokens,
             "completion_cost": completion_cost,
-            "completion_tokens": completion_tokens
+            "completion_tokens": completion_tokens,
         }

@@ -3,10 +3,12 @@ import os
 from openai import OpenAI
 import anthropic
 import google.generativeai as genai
-from google.generativeai import types
 from together import Together
 
-def anthropic_completion(system_prompt, model_name, base64_image, prompt, thinking=False):
+
+def anthropic_completion(
+    system_prompt, model_name, base64_image, prompt, thinking=False
+):
     print(f"anthropic vision-text activated... thinking: {thinking}")
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     messages = [
@@ -21,94 +23,84 @@ def anthropic_completion(system_prompt, model_name, base64_image, prompt, thinki
                         "data": base64_image,
                     },
                 },
-                {
-                    "type": "text",
-                    "text": prompt
-                },
+                {"type": "text", "text": prompt},
             ],
         }
     ]
     if thinking:
         with client.messages.stream(
-                max_tokens=20000,
-                thinking={
-                    "type": "enabled",
-                    "budget_tokens": 16000
-                },
-                messages=messages,
-                temperature=1,
-                system=system_prompt,
-                model=model_name, # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
-            ) as stream:
-                partial_chunks = []
-                for chunk in stream.text_stream:
-                    partial_chunks.append(chunk)
+            max_tokens=20000,
+            thinking={"type": "enabled", "budget_tokens": 16000},
+            messages=messages,
+            temperature=1,
+            system=system_prompt,
+            model=model_name,  # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
+        ) as stream:
+            partial_chunks = []
+            for chunk in stream.text_stream:
+                partial_chunks.append(chunk)
     else:
-         
         with client.messages.stream(
-                max_tokens=1024,
-                messages=messages,
-                temperature=0,
-                system=system_prompt,
-                model=model_name, # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
-            ) as stream:
-                partial_chunks = []
-                for chunk in stream.text_stream:
-                    partial_chunks.append(chunk)
-        
+            max_tokens=1024,
+            messages=messages,
+            temperature=0,
+            system=system_prompt,
+            model=model_name,  # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
+        ) as stream:
+            partial_chunks = []
+            for chunk in stream.text_stream:
+                partial_chunks.append(chunk)
+
     generated_code_str = "".join(partial_chunks)
-    
+
     return generated_code_str
+
 
 def anthropic_text_completion(system_prompt, model_name, prompt, thinking=False):
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     messages = [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt
-                        },
-                    ],
-                }
-            ]
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+            ],
+        }
+    ]
     if thinking:
         with client.messages.stream(
-                max_tokens=20000,
-                thinking={
-                    "type": "enabled",
-                    "budget_tokens": 16000
-                },
-                messages=messages,
-                temperature=1,
-                system=system_prompt,
-                model=model_name, # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
-            ) as stream:
-                partial_chunks = []
-                for chunk in stream.text_stream:
-                    partial_chunks.append(chunk)
-    else:    
+            max_tokens=20000,
+            thinking={"type": "enabled", "budget_tokens": 16000},
+            messages=messages,
+            temperature=1,
+            system=system_prompt,
+            model=model_name,  # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
+        ) as stream:
+            partial_chunks = []
+            for chunk in stream.text_stream:
+                partial_chunks.append(chunk)
+    else:
         with client.messages.stream(
-                max_tokens=1024,
-                messages=messages,
-                temperature=0,
-                system=system_prompt,
-                model=model_name, # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
-            ) as stream:
-                partial_chunks = []
-                for chunk in stream.text_stream:
-                    partial_chunks.append(chunk)
-        
+            max_tokens=1024,
+            messages=messages,
+            temperature=0,
+            system=system_prompt,
+            model=model_name,  # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
+        ) as stream:
+            partial_chunks = []
+            for chunk in stream.text_stream:
+                partial_chunks.append(chunk)
+
     generated_str = "".join(partial_chunks)
-    
+
     return generated_str
 
 
-def anthropic_multiimage_completion(system_prompt, model_name, prompt, list_content, list_image_base64):
+def anthropic_multiimage_completion(
+    system_prompt, model_name, prompt, list_content, list_image_base64
+):
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    
-    content_blocks = [] 
+
+    content_blocks = []
     for text_item, base64_image in zip(list_content, list_image_base64):
         content_blocks.append(
             {
@@ -126,13 +118,8 @@ def anthropic_multiimage_completion(system_prompt, model_name, prompt, list_cont
                 },
             }
         )
-    
-    content_blocks.append(
-        {
-            "type": "text",
-            "text": prompt
-        }
-    )
+
+    content_blocks.append({"type": "text", "text": prompt})
 
     messages = [
         {
@@ -141,42 +128,45 @@ def anthropic_multiimage_completion(system_prompt, model_name, prompt, list_cont
         }
     ]
 
-    print(f"message size: {len(content_blocks)+1}")
+    print(f"message size: {len(content_blocks) + 1}")
 
     with client.messages.stream(
-            max_tokens=1024,
-            messages=messages,
-            temperature=0,
-            system=system_prompt,
-            model=model_name, # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
-        ) as stream:
-            partial_chunks = []
-            for chunk in stream.text_stream:
-                print(chunk)
-                partial_chunks.append(chunk)
-        
+        max_tokens=1024,
+        messages=messages,
+        temperature=0,
+        system=system_prompt,
+        model=model_name,  # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
+    ) as stream:
+        partial_chunks = []
+        for chunk in stream.text_stream:
+            print(chunk)
+            partial_chunks.append(chunk)
+
     generated_str = "".join(partial_chunks)
-    
+
     return generated_str
+
 
 import httpx
 
 _original_headers_init = httpx.Headers.__init__
 
+
 def safe_headers_init(self, headers=None, encoding=None):
     # Convert dict values to ASCII
     if isinstance(headers, dict):
         headers = {
-            k: (v.encode('ascii', 'ignore').decode() if isinstance(v, str) else v)
+            k: (v.encode("ascii", "ignore").decode() if isinstance(v, str) else v)
             for k, v in headers.items()
         }
     elif isinstance(headers, list):
         # Convert list of tuples: [(k, v), ...]
         headers = [
-            (k, v.encode('ascii', 'ignore').decode() if isinstance(v, str) else v)
+            (k, v.encode("ascii", "ignore").decode() if isinstance(v, str) else v)
             for k, v in headers
         ]
     _original_headers_init(self, headers=headers, encoding=encoding)
+
 
 # Apply the patch
 httpx.Headers.__init__ = safe_headers_init
@@ -186,22 +176,25 @@ def openai_completion(system_prompt, model_name, base64_image, prompt, temperatu
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     # Force-clean headers to prevent UnicodeEncodeError
-    client._client._headers.update({
-        k: (v.encode('ascii', 'ignore').decode() if isinstance(v, str) else v)
-        for k, v in client._client._headers.items()
-    })
+    client._client._headers.update(
+        {
+            k: (v.encode("ascii", "ignore").decode() if isinstance(v, str) else v)
+            for k, v in client._client._headers.items()
+        }
+    )
 
     base64_image = None if "o3-mini" in model_name else base64_image
     if base64_image is None:
-        messages = [
-            {"role": "user", "content": [{"type": "text", "text": prompt}]}
-        ]
+        messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
     else:
         messages = [
             {
                 "role": "user",
                 "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{base64_image}"},
+                    },
                     {"type": "text", "text": prompt},
                 ],
             }
@@ -220,19 +213,17 @@ def openai_completion(system_prompt, model_name, base64_image, prompt, temperatu
     response = client.chat.completions.create(**request_params)
     return response.choices[0].message.content
 
+
 def openai_text_completion(system_prompt, model_name, prompt):
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": prompt
-                    },
-                ],
-            }
-        ]
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+            ],
+        }
+    ]
 
     response = client.chat.completions.create(
         model=model_name,
@@ -242,35 +233,33 @@ def openai_text_completion(system_prompt, model_name, prompt):
     )
 
     generated_str = response.choices[0].message.content
-     
+
     return generated_str
+
 
 def openai_text_reasoning_completion(system_prompt, model_name, prompt, temperature=0):
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    
+
     messages = [
         {
             "role": "user",
             "content": [
-                {
-                    "type": "text",
-                    "text": prompt
-                },
+                {"type": "text", "text": prompt},
             ],
         }
     ]
 
     # Determine correct token parameter
     token_param = "max_completion_tokens" if "o3-mini" in model_name else "max_tokens"
-    
+
     # Prepare request parameters dynamically
     request_params = {
         "model": model_name,
         "messages": messages,
         token_param: 100000,
-        "reasoning_effort": "medium"
+        "reasoning_effort": "medium",
     }
-    
+
     # Only add 'temperature' if the model supports it
     if "o3-mini" not in model_name:  # Assuming o3-mini doesn't support 'temperature'
         request_params["temperature"] = temperature
@@ -278,74 +267,66 @@ def openai_text_reasoning_completion(system_prompt, model_name, prompt, temperat
     response = client.chat.completions.create(**request_params)
 
     generated_str = response.choices[0].message.content
-     
+
     return generated_str
 
+
 def deepseek_text_reasoning_completion(system_prompt, model_name, prompt):
-     
     client = OpenAI(
         api_key=os.getenv("DEEPSEEK_API_KEY"),
         base_url="https://api.deepseek.com",
     )
 
-
-    messages = [
-        {
-            "role": "user",
-            "content": prompt
-        }
-    ]
+    messages = [{"role": "user", "content": prompt}]
 
     reasoning_content = ""
     content = ""
     response = client.chat.completions.create(
-        model= model_name,
-        messages = messages,
-        stream=True,
-        max_tokens=8000)
-    
+        model=model_name, messages=messages, stream=True, max_tokens=8000
+    )
+
     for chunk in response:
-        if chunk.choices[0].delta.reasoning_content and chunk.choices[0].delta.reasoning_content:
+        if (
+            chunk.choices[0].delta.reasoning_content
+            and chunk.choices[0].delta.reasoning_content
+        ):
             reasoning_content += chunk.choices[0].delta.reasoning_content
-        elif hasattr(chunk.choices[0].delta, "content") and chunk.choices[0].delta.content:
+        elif (
+            hasattr(chunk.choices[0].delta, "content")
+            and chunk.choices[0].delta.content
+        ):
             content += chunk.choices[0].delta.content
-    
+
     # generated_str = response.choices[0].message.content
     print(content)
     return content
-    
 
 
-def openai_multiimage_completion(system_prompt, model_name, prompt, list_content, list_image_base64):
+def openai_multiimage_completion(
+    system_prompt, model_name, prompt, list_content, list_image_base64
+):
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     content_blocks = []
-    
+
     joined_steps = "\n\n".join(list_content)
-    content_blocks.append(
-        {
-            "type": "text",
-            "text": joined_steps
-        }
-    )
+    content_blocks.append({"type": "text", "text": joined_steps})
 
     for base64_image in list_image_base64:
         content_blocks.append(
             {
                 "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{base64_image}"
-                },
+                "image_url": {"url": f"data:image/png;base64,{base64_image}"},
             },
         )
 
-    messages [
+    messages[
         {
             "role": "user",
             "content": content_blocks,
         }
     ]
-    
+
     response = client.chat.completions.create(
         model=model_name,
         messages=messages,
@@ -354,7 +335,7 @@ def openai_multiimage_completion(system_prompt, model_name, prompt, list_content
     )
 
     generated_str = response.choices[0].message.content
-     
+
     return generated_str
 
 
@@ -365,11 +346,9 @@ def gemini_text_completion(system_prompt, model_name, prompt):
     messages = [
         prompt,
     ]
-            
+
     try:
-        response = model.generate_content(
-            messages
-        )
+        response = model.generate_content(messages)
     except Exception as e:
         print(f"error: {e}")
 
@@ -377,59 +356,59 @@ def gemini_text_completion(system_prompt, model_name, prompt):
         response = model.generate_content(messages)
 
         # Ensure response is valid and contains candidates
-        if not response or not hasattr(response, "candidates") or not response.candidates:
+        if (
+            not response
+            or not hasattr(response, "candidates")
+            or not response.candidates
+        ):
             print("Warning: Empty or invalid response")
             return ""
-        
+
         return response.text  # Access response.text safely
 
     except Exception as e:
         print(f"Error: {e}")
-        return "" 
+        return ""
+
 
 def anthropic_text_completion(system_prompt, model_name, prompt, thinking=False):
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     messages = [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt
-                        },
-                    ],
-                }
-            ]
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+            ],
+        }
+    ]
     if thinking:
         with client.messages.stream(
-                max_tokens=20000,
-                thinking={
-                    "type": "enabled",
-                    "budget_tokens": 16000
-                },
-                messages=messages,
-                temperature=1,
-                system=system_prompt,
-                model=model_name, # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
-            ) as stream:
-                partial_chunks = []
-                for chunk in stream.text_stream:
-                    partial_chunks.append(chunk)
-    else:    
+            max_tokens=20000,
+            thinking={"type": "enabled", "budget_tokens": 16000},
+            messages=messages,
+            temperature=1,
+            system=system_prompt,
+            model=model_name,  # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
+        ) as stream:
+            partial_chunks = []
+            for chunk in stream.text_stream:
+                partial_chunks.append(chunk)
+    else:
         with client.messages.stream(
-                max_tokens=1024,
-                messages=messages,
-                temperature=0,
-                system=system_prompt,
-                model=model_name, # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
-            ) as stream:
-                partial_chunks = []
-                for chunk in stream.text_stream:
-                    partial_chunks.append(chunk)
-        
+            max_tokens=1024,
+            messages=messages,
+            temperature=0,
+            system=system_prompt,
+            model=model_name,  # claude-3-5-sonnet-20241022 # claude-3-7-sonnet-20250219
+        ) as stream:
+            partial_chunks = []
+            for chunk in stream.text_stream:
+                partial_chunks.append(chunk)
+
     generated_str = "".join(partial_chunks)
-    
+
     return generated_str
+
 
 def gemini_text_completion(system_prompt, model_name, prompt):
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -438,11 +417,9 @@ def gemini_text_completion(system_prompt, model_name, prompt):
     messages = [
         prompt,
     ]
-            
+
     try:
-        response = model.generate_content(
-            messages
-        )
+        response = model.generate_content(messages)
     except Exception as e:
         print(f"error: {e}")
 
@@ -450,15 +427,20 @@ def gemini_text_completion(system_prompt, model_name, prompt):
         response = model.generate_content(messages)
 
         # Ensure response is valid and contains candidates
-        if not response or not hasattr(response, "candidates") or not response.candidates:
+        if (
+            not response
+            or not hasattr(response, "candidates")
+            or not response.candidates
+        ):
             print("Warning: Empty or invalid response")
             return ""
-        
+
         return response.text  # Access response.text safely
 
     except Exception as e:
         print(f"Error: {e}")
-        return "" 
+        return ""
+
 
 def gemini_completion(system_prompt, model_name, base64_image, prompt):
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -471,11 +453,9 @@ def gemini_completion(system_prompt, model_name, base64_image, prompt):
         },
         prompt,
     ]
-            
+
     try:
-        response = model.generate_content(
-            messages
-        )
+        response = model.generate_content(messages)
     except Exception as e:
         print(f"error: {e}")
 
@@ -483,17 +463,24 @@ def gemini_completion(system_prompt, model_name, base64_image, prompt):
         response = model.generate_content(messages)
 
         # Ensure response is valid and contains candidates
-        if not response or not hasattr(response, "candidates") or not response.candidates:
+        if (
+            not response
+            or not hasattr(response, "candidates")
+            or not response.candidates
+        ):
             print("Warning: Empty or invalid response")
             return ""
-        
+
         return response.text  # Access response.text safely
 
     except Exception as e:
         print(f"Error: {e}")
-        return "" 
+        return ""
 
-def gemini_multiimage_completion(system_prompt, model_name, prompt, list_content, list_image_base64):
+
+def gemini_multiimage_completion(
+    system_prompt, model_name, prompt, list_content, list_image_base64
+):
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
     model = genai.GenerativeModel(model_name=model_name)
 
@@ -505,14 +492,12 @@ def gemini_multiimage_completion(system_prompt, model_name, prompt, list_content
                 "data": base64_image,
             },
         )
-    
+
     joined_steps = "\n\n".join(list_content)
-    content_blocks.append(
-        joined_steps
-    )
+    content_blocks.append(joined_steps)
 
     messages = content_blocks
-            
+
     try:
         response = model.generate_content(
             messages,
@@ -526,39 +511,38 @@ def gemini_multiimage_completion(system_prompt, model_name, prompt, list_content
 
 
 def deepseek_text_reasoning_completion(system_prompt, model_name, prompt):
-     
     client = OpenAI(
         api_key=os.getenv("DEEPSEEK_API_KEY"),
         base_url="https://api.deepseek.com",
     )
 
-
-    messages = [
-        {
-            "role": "user",
-            "content": prompt
-        }
-    ]
+    messages = [{"role": "user", "content": prompt}]
 
     reasoning_content = ""
     content = ""
     response = client.chat.completions.create(
-        model= model_name,
-        messages = messages,
-        stream=True,
-        max_tokens=8000)
-    
+        model=model_name, messages=messages, stream=True, max_tokens=8000
+    )
+
     for chunk in response:
-        if chunk.choices[0].delta.reasoning_content and chunk.choices[0].delta.reasoning_content:
+        if (
+            chunk.choices[0].delta.reasoning_content
+            and chunk.choices[0].delta.reasoning_content
+        ):
             reasoning_content += chunk.choices[0].delta.reasoning_content
-        elif hasattr(chunk.choices[0].delta, "content") and chunk.choices[0].delta.content:
+        elif (
+            hasattr(chunk.choices[0].delta, "content")
+            and chunk.choices[0].delta.content
+        ):
             content += chunk.choices[0].delta.content
-    
+
     # generated_str = response.choices[0].message.content
     return content
 
 
-def together_ai_completion(system_prompt, model_name, prompt, base64_image=None, temperature=0):
+def together_ai_completion(
+    system_prompt, model_name, prompt, base64_image=None, temperature=0
+):
     client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
     if base64_image is not None:
         response = client.chat.completions.create(
@@ -569,34 +553,23 @@ def together_ai_completion(system_prompt, model_name, prompt, base64_image=None,
                     "content": [
                         {
                             "type": "image_url",
-                            "image_url": {"url": f"data:image/png;base64,{base64_image}"}
+                            "image_url": {
+                                "url": f"data:image/png;base64,{base64_image}"
+                            },
                         },
-                        {
-                            "type": "text",
-                            "text": prompt
-                        }
-                    ]
+                        {"type": "text", "text": prompt},
+                    ],
                 }
             ],
-            temperature=temperature
+            temperature=temperature,
         )
     else:
         response = client.chat.completions.create(
             model="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt
-                        }
-                    ]
-                }
-            ],
-            temperature=temperature
+            messages=[{"role": "user", "content": [{"type": "text", "text": prompt}]}],
+            temperature=temperature,
         )
 
     generated_str = response.choices[0].message.content
-     
+
     return generated_str

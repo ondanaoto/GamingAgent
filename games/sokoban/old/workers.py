@@ -1,28 +1,31 @@
 import time
 import os
 import pyautogui
-import numpy as np
-import concurrent.futures
 
-from tools.utils import encode_image, log_output, get_annotate_img
-from tools.serving.api_providers import anthropic_completion, openai_completion, gemini_completion
-import re
+from tools.utils import encode_image, get_annotate_img
+from tools.serving.api_providers import (
+    anthropic_completion,
+    openai_completion,
+    gemini_completion,
+)
 import json
 
 CACHE_DIR = "cache/boxxel"
 
-def load_matrix(filename='game_state.json'):
+
+def load_matrix(filename="game_state.json"):
     filename = os.path.join(CACHE_DIR, filename)
     """Load the game matrix from a JSON file."""
     if not os.path.exists(filename):
         return None
     try:
-        with open(filename, 'r') as f:
+        with open(filename, "r") as f:
             return json.load(f)
     except Exception as e:
         print(f"Error loading matrix: {e}")
         return None
-    
+
+
 def matrix_to_string(matrix):
     """Convert a 2D list matrix into a string with each row on a new line."""
     # If each element is already a string or you want a space between them:
@@ -34,14 +37,15 @@ def log_move_and_thought(move, thought, latency):
     Logs the move and thought process into a log file inside the cache directory.
     """
     log_file_path = os.path.join(CACHE_DIR, "boxxel_moves.log")
-    
+
     log_entry = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Move: {move}, Thought: {thought}, Latency: {latency:.2f} sec\n"
-    
+
     try:
         with open(log_file_path, "a") as log_file:
             log_file.write(log_entry)
     except Exception as e:
         print(f"[ERROR] Failed to write log entry: {e}")
+
 
 def boxxel_read_worker(system_prompt, api_provider, model_name, image_path, level=1):
     base64_image = encode_image(image_path)
@@ -61,7 +65,7 @@ def boxxel_read_worker(system_prompt, api_provider, model_name, image_path, leve
         level_info = "35, 44, and 53 are docks."
     prompt = (
         f"Current level information: {level_info}"
-        '''
+        """
     Extract the Sokoban board layout from the provided image.  
     Use the existing unique IDs in the image to identify each game element.  
     For each ID, recognize the corresponding element based on color and shape.
@@ -86,10 +90,9 @@ def boxxel_read_worker(system_prompt, api_provider, model_name, image_path, leve
     7: Background (2, 0)  
 
     Ensure the format remains consistent and strictly adheres to the example layout.
-    '''   )
+    """
+    )
 
-    
-    
     # Call LLM API based on provider
     if api_provider == "anthropic":
         response = anthropic_completion(system_prompt, model_name, base64_image, prompt)
@@ -99,28 +102,34 @@ def boxxel_read_worker(system_prompt, api_provider, model_name, image_path, leve
         response = gemini_completion(system_prompt, model_name, base64_image, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-    
+
     # Process response and format as structured board output
     structured_board = response.strip()
-    
+
     # Generate final text output
     final_output = "\nBoxxel Board Representation:\n" + structured_board
-
 
     return final_output
 
 
-def api_call(system_prompt, api_provider, model_name, base64_image, prompt, thinking=False):
+def api_call(
+    system_prompt, api_provider, model_name, base64_image, prompt, thinking=False
+):
     if api_provider == "anthropic":
-        response = anthropic_completion(system_prompt, model_name, base64_image, prompt, thinking=thinking)
+        response = anthropic_completion(
+            system_prompt, model_name, base64_image, prompt, thinking=thinking
+        )
     elif api_provider == "openai":
-        response = openai_completion(system_prompt, model_name, base64_image, prompt, temperature=1)
+        response = openai_completion(
+            system_prompt, model_name, base64_image, prompt, temperature=1
+        )
     elif api_provider == "gemini":
         response = gemini_completion(system_prompt, model_name, base64_image, prompt)
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-    
+
     return response
+
 
 def boxxel_evaluator(system_prompt, api_provider, model_name, table, solution):
     prompt = (
@@ -132,12 +141,19 @@ def boxxel_evaluator(system_prompt, api_provider, model_name, table, solution):
         "Simulate worker's path to see whether it is valid and whether box and worker's position are carefully considered."
     )
 
-    response = api_call(system_prompt, api_provider, model_name, base64_image=None, prompt=prompt, thinking=True)
+    response = api_call(
+        system_prompt,
+        api_provider,
+        model_name,
+        base64_image=None,
+        prompt=prompt,
+        thinking=True,
+    )
 
     return response
 
 
-def boxxel_worker(system_prompt, api_provider, model_name, prev_response="", level = 1):
+def boxxel_worker(system_prompt, api_provider, model_name, prev_response="", level=1):
     """
     1) Captures a screenshot of the current game state.
     2) Calls an LLM to generate PyAutoGUI code for the next move.
@@ -146,20 +162,43 @@ def boxxel_worker(system_prompt, api_provider, model_name, prev_response="", lev
     # Capture a screenshot of the current game state.
     screen_width, screen_height = pyautogui.size()
     region = (0, 0, screen_width, screen_height)
-    
+
     screenshot = pyautogui.screenshot(region=region)
 
     # Save the screenshot directly in the cache directory.
     os.makedirs("cache/boxxel", exist_ok=True)
     screenshot_path = "cache/boxxel/boxxel_screenshot.png"
 
-
     screenshot.save(screenshot_path)
     if level == 2:
-        _, _, annotated_cropped_image_path = get_annotate_img(screenshot_path, crop_left=225, crop_right=1570, crop_top=365, crop_bottom=460, grid_rows=9, grid_cols=9, cache_dir=CACHE_DIR)
+        _, _, annotated_cropped_image_path = get_annotate_img(
+            screenshot_path,
+            crop_left=225,
+            crop_right=1570,
+            crop_top=365,
+            crop_bottom=460,
+            grid_rows=9,
+            grid_cols=9,
+            cache_dir=CACHE_DIR,
+        )
     elif level == 1:
-        _, _, annotated_cropped_image_path = get_annotate_img(screenshot_path, crop_left=255, crop_right=1630, crop_top=400, crop_bottom=520, grid_rows=8, grid_cols=8, cache_dir=CACHE_DIR)
-    table = boxxel_read_worker(system_prompt, api_provider, model_name, annotated_cropped_image_path, level = level)
+        _, _, annotated_cropped_image_path = get_annotate_img(
+            screenshot_path,
+            crop_left=255,
+            crop_right=1630,
+            crop_top=400,
+            crop_bottom=520,
+            grid_rows=8,
+            grid_cols=8,
+            cache_dir=CACHE_DIR,
+        )
+    table = boxxel_read_worker(
+        system_prompt,
+        api_provider,
+        model_name,
+        annotated_cropped_image_path,
+        level=level,
+    )
     print(table)
     prompt = (
         f"This is previous reflection: {prev_response}"
@@ -171,18 +210,18 @@ def boxxel_worker(system_prompt, api_provider, model_name, prev_response="", lev
         "write code to solve this puzzle"
     )
 
-
-    
-
     base64_image = encode_image(annotated_cropped_image_path)
     start_time = time.time()
 
     print(f"Calling {model_name} api...")
     # Call the LLM API based on the selected provider.
-    response = api_call(system_prompt, api_provider, model_name, base64_image, prompt, thinking=False)
+    response = api_call(
+        system_prompt, api_provider, model_name, base64_image, prompt, thinking=False
+    )
     print(response)
-    reflection = boxxel_evaluator(system_prompt, api_provider, model_name, table, response)
-
+    reflection = boxxel_evaluator(
+        system_prompt, api_provider, model_name, table, response
+    )
 
     latency = time.time() - start_time
 
@@ -196,18 +235,17 @@ def boxxel_worker(system_prompt, api_provider, model_name, prev_response="", lev
 
     # for move in actions:
     #     print(f"Executing: {move}")
-        
+
     #     # Perform the move
     #     pyautogui.keyDown(move)
     #     time.sleep(0.01)
     #     pyautogui.keyUp(move)
 
     # final_output = f"Generated Solution:\n{response}\n\nReflection:\n{reflection}"
-    
+
     return reflection
 
     # match = re.search(r'move:\s*(\w+)\s*(\d*)\s*;\s*thought:\s*(.*?);\s*planning:\s*(.*)', response, re.IGNORECASE)
-
 
     # if match:
     #     move = match.group(1).strip().lower()  # Direction (up, down, left, right)
@@ -244,7 +282,6 @@ def boxxel_worker(system_prompt, api_provider, model_name, prev_response="", lev
     # move = match.group(1).strip()
     # thought = match.group(2).strip()
     # planning = match.group(3).strip()
-
 
     # print(f"perform next move:{move}")
     # pyautogui.press(move.lower().strip())

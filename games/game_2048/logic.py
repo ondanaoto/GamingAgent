@@ -39,8 +39,12 @@ def checkGameStatus(board, max_tile=2048):
     for i in range(4):
         for j in range(4):
             # check if a merge is possible
-            if j != 3 and board[i][j] == board[i][j+1] or \
-                    i != 3 and board[i][j] == board[i + 1][j]:
+            if (
+                j != 3
+                and board[i][j] == board[i][j + 1]
+                or i != 3
+                and board[i][j] == board[i + 1][j]
+            ):
                 return "PLAY"
 
     if 0 not in flat_board:
@@ -62,7 +66,7 @@ def fillTwoOrFour(board, iter=1):
     for _ in range(iter):
         a = random.randint(0, 3)
         b = random.randint(0, 3)
-        while(board[a][b] != 0):
+        while board[a][b] != 0:
             a = random.randint(0, 3)
             b = random.randint(0, 3)
 

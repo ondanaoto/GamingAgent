@@ -68,6 +68,7 @@ TOKEN_COSTS = TOKEN_COSTS_STATIC.copy()
 if __name__ == "__main__":
     try:
         import asyncio
+
         asyncio.run(update_token_costs())
         print("Token costs updated successfully")
     except Exception:

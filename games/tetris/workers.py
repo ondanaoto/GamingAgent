@@ -1,6 +1,5 @@
 import time
 import os
-import pyautogui
 import numpy as np
 
 import re
@@ -9,8 +8,25 @@ import json
 
 import concurrent.futures
 
-from tools.utils import encode_image, log_output, extract_python_code, read_log_to_string, extract_patch_table, extract_game_table, get_annotate_img, get_annotate_patched_img
-from tools.serving.api_providers import anthropic_completion, openai_completion, gemini_completion, anthropic_text_completion, openai_text_completion, gemini_text_completion, openai_text_reasoning_completion
+from tools.utils import (
+    encode_image,
+    log_output,
+    extract_python_code,
+    read_log_to_string,
+    extract_patch_table,
+    extract_game_table,
+    get_annotate_img,
+    get_annotate_patched_img,
+)
+from tools.serving.api_providers import (
+    anthropic_completion,
+    openai_completion,
+    gemini_completion,
+    anthropic_text_completion,
+    openai_text_completion,
+    gemini_text_completion,
+    openai_text_reasoning_completion,
+)
 
 color_map = {
     0: "Empty",
@@ -20,24 +36,25 @@ color_map = {
     4: "Yellow",
     5: "Green",
     6: "Purple",
-    7: "Red"
+    7: "Red",
 }
+
 
 def state_to_text(json_file):
     with open(json_file, "r") as f:
         state = json.load(f)
-    
+
     print("file loaded...")
-    
+
     # Start building the output string
     output = f"Current Grid Status ({state['grid']['num_rows']} rows x {state['grid']['num_cols']} cols):\n"
-    
+
     # Process each row of the grid
     for row in state["grid"]["cells"]:
         # Convert each cell number to its corresponding color name.
         row_str = " | ".join([color_map.get(cell, str(cell)) for cell in row])
         output += row_str + "\n"
-    
+
     # Add details for the current block if present.
     if "current_block" in state:
         current = state["current_block"]
@@ -45,28 +62,31 @@ def state_to_text(json_file):
         positions = current.get("positions", [])
         output += ", ".join([f"({pos['row']}, {pos['column']})" for pos in positions])
         output += "\n"
-    
+
     return output
+
 
 def load_block_shapes(filename):
     # Read the JSON file and return the data
-    with open(filename, 'r') as file:
+    with open(filename, "r") as file:
         return json.load(file)
+
 
 def create_block_shapes_prompt(data):
     prompt = f"Block shapes data:\n{json.dumps(data)}\n"
     return prompt
 
+
 def game_table_to_matrix(game_table_text):
     """
     Convert a game table text (with rows like 'Row0:   0 1 0 1 ...') into a 2D list matrix.
-    
+
     The expected format is:
     Column  0  1  2  3  4  5  6  7  8  9
     Row0:   0  1  0  1  0  0  1  0  1  0
     Row1:   1  0  1  0  1  1  0  1  0  0
     ...
-    
+
     Returns:
         matrix (list of lists): Each inner list contains strings '0' or '1' for one row.
     """
@@ -79,40 +99,50 @@ def game_table_to_matrix(game_table_text):
         matrix.append(row)
     return matrix
 
+
 def matrix_to_text_table(matrix):
     """Convert a 2D list matrix into a structured text table."""
     header = "ID  | Item Type    | Position"
     line_separator = "-" * len(header)
-    
+
     item_map = {
-        '1': 'block',
-        '0': 'Empty',
+        "1": "block",
+        "0": "Empty",
     }
-    
+
     table_rows = [header, line_separator]
     item_id = 1
-    
+
     for row_idx, row in enumerate(matrix):
         for col_idx, cell in enumerate(row):
-            item_type = item_map.get(cell, 'Unknown')
-            table_rows.append(f"{item_id:<3} | {item_type:<12} | ({col_idx}, {row_idx})")
+            item_type = item_map.get(cell, "Unknown")
+            table_rows.append(
+                f"{item_id:<3} | {item_type:<12} | ({col_idx}, {row_idx})"
+            )
             item_id += 1
-    
+
     return "\n".join(table_rows)
 
-def tetris_board_aggregator(system_prompt, api_provider, model_name, complete_annotate_cropped_image_path, patch_list):
+
+def tetris_board_aggregator(
+    system_prompt,
+    api_provider,
+    model_name,
+    complete_annotate_cropped_image_path,
+    patch_list,
+):
     """
     Calls an LLM to merge multiple patch tables into one unified Tetris board.
-    
+
     patch_list (list of tuples): Each element is (patch_num, patch_table).
         For example:
         [
-            (0, 
+            (0,
                 "Column 0 1 2\n
                 Row0:   0 1 0\n
                 Row1:   1 1 1\n
             ..."),
-            (1, 
+            (1,
                 "Column 3 4 5\n
                 Row0:   0 0 1\n
                 Row1:   0 0 1\n
@@ -152,20 +182,26 @@ def tetris_board_aggregator(system_prompt, api_provider, model_name, complete_an
         "Row2:   x  x  x  x  x  x  x  x  x  x\n"
         "...\n"
         "Row19:  x  x  x  x  x  x  x  x  x  x\n"
-        "```\n" 
+        "```\n"
         "where each element 'x' takes either 0 or 1.\n\n"
     )
 
-    base64_image = encode_image(complete_annotate_cropped_image_path)
+    _base64_image = encode_image(complete_annotate_cropped_image_path)
 
     # Dispatch request to your chosen LLM
     if api_provider == "anthropic":
         # anthropic_completion(system_prompt, model_name, base64_image, aggregator_prompt)
-        merged_response = anthropic_text_completion(system_prompt, model_name, aggregator_prompt)
+        merged_response = anthropic_text_completion(
+            system_prompt, model_name, aggregator_prompt
+        )
     elif api_provider == "openai":
-        merged_response = openai_text_completion(system_prompt, model_name, aggregator_prompt)
+        merged_response = openai_text_completion(
+            system_prompt, model_name, aggregator_prompt
+        )
     elif api_provider == "gemini":
-        merged_response = gemini_text_completion(system_prompt, model_name, aggregator_prompt)
+        merged_response = gemini_text_completion(
+            system_prompt, model_name, aggregator_prompt
+        )
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
 
@@ -173,14 +209,15 @@ def tetris_board_aggregator(system_prompt, api_provider, model_name, complete_an
     merged_table = extract_game_table(merged_response)
     return merged_table.strip()
 
+
 def tetris_board_reader(system_prompt, api_provider, model_name, image_path, patch_num):
     """
     Reads part of the Tetris board from an image using a vision-language model (VLM).
     Returns a text-based representation of the board.
-    
+
     Example:
     PATCH 0
-      "Column   0  1  2  3  4  
+      "Column   0  1  2  3  4
       "Row0:    0  0  0  1  0\n"
       "Row1:    0  1  1  1  0\n"
       "Row2:    0  0  0  0  0\n"
@@ -199,12 +236,12 @@ def tetris_board_reader(system_prompt, api_provider, model_name, image_path, pat
         "Each block is represented by contiguous blocks with an unique background color.\n"
         "Only consider the following colors as color-filled:\n"
         "green = (47, 230, 23), "
-	    "red = (232, 18, 18), "
+        "red = (232, 18, 18), "
         "orange = (226, 116, 17), "
-	    "yellow = (237, 234, 4), "
-	    "purple = (166, 0, 247), "
-	    "cyan = (21, 204, 209), "
-	    "light_blue = (59, 85, 162). "
+        "yellow = (237, 234, 4), "
+        "purple = (166, 0, 247), "
+        "cyan = (21, 204, 209), "
+        "light_blue = (59, 85, 162). "
         "## The following DO NOT count as color-filled:\n"
         "1. Dark (deep blue) color background.\n"
         "2. Green grid lines.\n"
@@ -223,16 +260,22 @@ def tetris_board_reader(system_prompt, api_provider, model_name, image_path, pat
     )
 
     base64_image = encode_image(image_path)
-    
+
     if api_provider == "anthropic":
-        response = anthropic_completion(system_prompt, model_name, base64_image, vlm_prompt)
+        response = anthropic_completion(
+            system_prompt, model_name, base64_image, vlm_prompt
+        )
     elif api_provider == "openai":
-        response = openai_completion(system_prompt, model_name, base64_image, vlm_prompt)
+        response = openai_completion(
+            system_prompt, model_name, base64_image, vlm_prompt
+        )
     elif api_provider == "gemini":
-        response = gemini_completion(system_prompt, model_name, base64_image, vlm_prompt)
+        response = gemini_completion(
+            system_prompt, model_name, base64_image, vlm_prompt
+        )
     else:
         raise NotImplementedError(f"API provider: {api_provider} is not supported.")
-    
+
     # The response should contain the textual board representation
     subboard_text = response.strip()
     patch_level_text_table = extract_patch_table(subboard_text)
@@ -242,6 +285,7 @@ def tetris_board_reader(system_prompt, api_provider, model_name, image_path, pat
     print("--------------------------------")
 
     return patch_num, patch_level_text_table
+
 
 def tetris_worker(
     thread_id,
@@ -263,7 +307,7 @@ def tetris_worker(
     crop_bottom=2,
     grid_rows=20,
     grid_cols=10,
-    cache_folder="/games/tetris/Python-Tetris-Game-Pygame/cache/tetris"
+    cache_folder="/games/tetris/Python-Tetris-Game-Pygame/cache/tetris",
 ):
     """
     vision reasoning modality:
@@ -284,12 +328,18 @@ def tetris_worker(
             - Extracts the Python code from the LLM output
             - Executes the code with `exec()`
     """
-    assert modality in ["vision", "vision-text", "text-only"], f"{modality} modality is not supported."
-    assert input_type in ["read-from-game-backend", "read-from-ui"], f"{input_type} input type is not supported."
+    assert modality in ["vision", "vision-text", "text-only"], (
+        f"{modality} modality is not supported."
+    )
+    assert input_type in ["read-from-game-backend", "read-from-ui"], (
+        f"{input_type} input type is not supported."
+    )
     all_response_time = []
 
     time.sleep(offset)
-    print(f"[Thread {thread_id}] Starting after {offset}s delay... (Plan: {plan_seconds} seconds)")
+    print(
+        f"[Thread {thread_id}] Starting after {offset}s delay... (Plan: {plan_seconds} seconds)"
+    )
 
     tetris_prompt_template = """
 Analyze the current Tetris board state and generate PyAutoGUI code to control the active Tetris piece for the next {plan_seconds} second(s).
@@ -351,19 +401,23 @@ An active Tetris piece appears from the top, and is not connected to the bottom 
     block_shapes_info = load_block_shapes(block_shape_file_path)
     print("block shape file loaded.")
     block_shapes_prompt = create_block_shapes_prompt(block_shapes_info)
-    
+
     iter_counter = 0
     try:
         while True:
             # Read information passed from the speculator cache
             try:
                 # FIXME (lanxiang): make thread count configurable, currently planner is only in thread 0
-                experience_summary = read_log_to_string(f"cache/tetris/thread_0/planner/experience_summary.log")
-            except Exception as e:
+                experience_summary = read_log_to_string(
+                    "cache/tetris/thread_0/planner/experience_summary.log"
+                )
+            except Exception:
                 experience_summary = "- No lessons learned so far."
-            
-            print(f"-------------- experience summary --------------\n{experience_summary}\n------------------------------------\n")
-            
+
+            print(
+                f"-------------- experience summary --------------\n{experience_summary}\n------------------------------------\n"
+            )
+
             # Create a unique folder for this thread's cache
             screenshot_path = os.path.join(cache_folder, "screenshot.png")
 
@@ -377,13 +431,29 @@ An active Tetris piece appears from the top, and is not connected to the bottom 
 
             # Encode the screenshot
             print("starting a round of annotations...")
-            _, _, annotate_cropped_image_paths = get_annotate_patched_img(screenshot_path, 
-            crop_left=crop_left, crop_right=crop_right, 
-            crop_top=crop_top, crop_bottom=crop_bottom, 
-            grid_rows=grid_rows, grid_cols=grid_cols, 
-            x_dim=5, y_dim=5, cache_dir=cache_folder)
+            _, _, annotate_cropped_image_paths = get_annotate_patched_img(
+                screenshot_path,
+                crop_left=crop_left,
+                crop_right=crop_right,
+                crop_top=crop_top,
+                crop_bottom=crop_bottom,
+                grid_rows=grid_rows,
+                grid_cols=grid_cols,
+                x_dim=5,
+                y_dim=5,
+                cache_dir=cache_folder,
+            )
 
-            _, _, complete_annotate_cropped_image_path = get_annotate_img(screenshot_path, crop_left=crop_left, crop_right=crop_right, crop_top=crop_top, crop_bottom=crop_bottom, grid_rows=grid_rows, grid_cols=grid_cols, cache_dir=cache_folder)
+            _, _, complete_annotate_cropped_image_path = get_annotate_img(
+                screenshot_path,
+                crop_left=crop_left,
+                crop_right=crop_right,
+                crop_top=crop_top,
+                crop_bottom=crop_bottom,
+                grid_rows=grid_rows,
+                grid_cols=grid_cols,
+                cache_dir=cache_folder,
+            )
 
             base64_image = encode_image(complete_annotate_cropped_image_path)
 
@@ -396,22 +466,37 @@ An active Tetris piece appears from the top, and is not connected to the bottom 
                 try:
                     threads = []
                     # read individual game sub-boards
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=total_patch_num) as executor:
+                    with concurrent.futures.ThreadPoolExecutor(
+                        max_workers=total_patch_num
+                    ) as executor:
                         for i in range(total_patch_num):
                             threads.append(
                                 executor.submit(
-                                    tetris_board_reader, board_reader_system_prompt, board_reader_api_provider, board_reader_model_name, annotate_cropped_image_paths[i], i
+                                    tetris_board_reader,
+                                    board_reader_system_prompt,
+                                    board_reader_api_provider,
+                                    board_reader_model_name,
+                                    annotate_cropped_image_paths[i],
+                                    i,
                                 )
                             )
-                        
+
                         for _ in concurrent.futures.as_completed(threads):
                             patch_table_list.append(_.result())
-                    
+
                     print("patch table list generated.")
 
-                    sorted_patch_table_list = sorted(patch_table_list, key=lambda x: x[0])
+                    sorted_patch_table_list = sorted(
+                        patch_table_list, key=lambda x: x[0]
+                    )
                     # aggreagte sub-boards to a bigger one
-                    board_text = tetris_board_aggregator(board_aggregator_system_prompt, board_reader_api_provider, board_reader_model_name, complete_annotate_cropped_image_path, sorted_patch_table_list)
+                    board_text = tetris_board_aggregator(
+                        board_aggregator_system_prompt,
+                        board_reader_api_provider,
+                        board_reader_model_name,
+                        complete_annotate_cropped_image_path,
+                        sorted_patch_table_list,
+                    )
 
                     matrix = game_table_to_matrix(board_text)
                     formatted_text_table = matrix_to_text_table(matrix)
@@ -430,7 +515,7 @@ An active Tetris piece appears from the top, and is not connected to the bottom 
             print("---- Tetris Board (textual) ----")
             print(formatted_text_table)
             print("--------------------------------")
-            
+
             tetris_prompt = tetris_prompt_template.format(
                 board_text=formatted_text_table,
                 tetris_configurations=block_shapes_prompt,
@@ -438,26 +523,44 @@ An active Tetris piece appears from the top, and is not connected to the bottom 
                 experience_summary=experience_summary,
             )
 
-            print(f"============ complete Tetris prompt ============\n{tetris_prompt}\n===========================\n")
+            print(
+                f"============ complete Tetris prompt ============\n{tetris_prompt}\n===========================\n"
+            )
 
             start_time = time.time()
 
             try:
                 # HACK: o3-mini only support text-only modality for now
-                if api_provider == "openai" and "o3" in model_name and modality=="text-only":
-                    generated_code_str = openai_text_reasoning_completion(system_prompt, model_name, tetris_prompt)
-                elif api_provider == "anthropic" and modality=="text-only":
+                if (
+                    api_provider == "openai"
+                    and "o3" in model_name
+                    and modality == "text-only"
+                ):
+                    generated_code_str = openai_text_reasoning_completion(
+                        system_prompt, model_name, tetris_prompt
+                    )
+                elif api_provider == "anthropic" and modality == "text-only":
                     print("calling text-only API...")
-                    generated_code_str = anthropic_text_completion(system_prompt, model_name, tetris_prompt)
+                    generated_code_str = anthropic_text_completion(
+                        system_prompt, model_name, tetris_prompt
+                    )
                 elif api_provider == "anthropic":
                     print("calling vision API...")
-                    generated_code_str = anthropic_completion(system_prompt, model_name, base64_image, tetris_prompt)
+                    generated_code_str = anthropic_completion(
+                        system_prompt, model_name, base64_image, tetris_prompt
+                    )
                 elif api_provider == "openai":
-                    generated_code_str = openai_completion(system_prompt, model_name, base64_image, tetris_prompt)
+                    generated_code_str = openai_completion(
+                        system_prompt, model_name, base64_image, tetris_prompt
+                    )
                 elif api_provider == "gemini":
-                    generated_code_str = gemini_completion(system_prompt, model_name, base64_image, tetris_prompt)
+                    generated_code_str = gemini_completion(
+                        system_prompt, model_name, base64_image, tetris_prompt
+                    )
                 else:
-                    raise NotImplementedError(f"API provider: {api_provider} is not supported.")
+                    raise NotImplementedError(
+                        f"API provider: {api_provider} is not supported."
+                    )
 
             except Exception as e:
                 print(f"[Thread {thread_id}] Error executing code: {e}")
@@ -475,14 +578,19 @@ An active Tetris piece appears from the top, and is not connected to the bottom 
 
             # Extract Python code for execution
             clean_code = extract_python_code(generated_code_str)
-            log_output(thread_id, f"[Thread {thread_id}] Python code to be executed:\n{clean_code}\n", "tetris", f"iter_{iter_counter}")
+            log_output(
+                thread_id,
+                f"[Thread {thread_id}] Python code to be executed:\n{clean_code}\n",
+                "tetris",
+                f"iter_{iter_counter}",
+            )
             print(f"[Thread {thread_id}] Python code to be executed:\n{clean_code}\n")
 
             try:
                 exec(clean_code)
             except Exception as e:
                 print(f"[Thread {thread_id}] Error executing code: {e}")
-            
+
             iter_counter += 1
 
     except KeyboardInterrupt:

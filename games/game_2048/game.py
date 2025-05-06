@@ -21,8 +21,7 @@ pygame.init()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 constants_path = os.path.join(BASE_DIR, "constants.json")
 c = json.load(open(constants_path, "r"))
-screen = pygame.display.set_mode(
-    (c["size"], c["size"]))
+screen = pygame.display.set_mode((c["size"], c["size"]))
 my_font = pygame.font.SysFont(c["font"], c["font_size"], bold=True)
 WHITE = (255, 255, 255)
 
@@ -75,8 +74,9 @@ def winCheck(board, status, theme, text_col, size):
 
         while True:
             for event in pygame.event.get():
-                if event.type == pygame.QUIT or \
-                        (event.type == pygame.KEYDOWN and event.key == pygame.K_n):
+                if event.type == pygame.QUIT or (
+                    event.type == pygame.KEYDOWN and event.key == pygame.K_n
+                ):
                     pygame.quit()
                     sys.exit()
 
@@ -86,7 +86,6 @@ def winCheck(board, status, theme, text_col, size):
                     return board, "PLAY"
 
     return board, status
-
 
 
 def newGame(theme, text_col, size):
@@ -136,6 +135,7 @@ def restart(board, theme, text_col, size):
     print("Restarting game...")  # Debugging output
     return newGame(theme, text_col, size)
 
+
 def display(board, theme, size):
     """
     Display the board 'matrix' on the game window.
@@ -146,7 +146,7 @@ def display(board, theme, size):
         size (tuple): (width, height) of the game window
     """
     screen.fill(tuple(c["colour"][theme]["background"]))
-    
+
     grid_size = 4  # 2048 is a 4x4 grid
     box = size[0] // grid_size  # Adjust tile size dynamically based on window size
     padding = box // 10  # Set padding relative to box size
@@ -158,10 +158,17 @@ def display(board, theme, size):
     for i in range(grid_size):
         for j in range(grid_size):
             colour = tuple(c["colour"][theme][str(board[i][j])])
-            pygame.draw.rect(screen, colour, (j * box + padding,
-                                              i * box + padding,
-                                              box - 2 * padding,
-                                              box - 2 * padding), 0)
+            pygame.draw.rect(
+                screen,
+                colour,
+                (
+                    j * box + padding,
+                    i * box + padding,
+                    box - 2 * padding,
+                    box - 2 * padding,
+                ),
+                0,
+            )
 
             if board[i][j] != 0:
                 if board[i][j] in (2, 4):
@@ -171,13 +178,13 @@ def display(board, theme, size):
 
                 # Render number text centered within tile
                 text_surface = my_font.render(f"{board[i][j]}", True, text_colour)
-                
+
                 # Calculate center position dynamically
                 text_x = j * box + (box - text_surface.get_width()) // 2
                 text_y = i * box + (box - text_surface.get_height()) // 2
-                
+
                 screen.blit(text_surface, (text_x, text_y))
-    
+
     pygame.display.update()
 
 
@@ -206,21 +213,19 @@ def playGame(theme, difficulty, size):
         pygame.K_LEFT: "a",
         pygame.K_RIGHT: "d",
         pygame.K_UP: "w",
-        pygame.K_DOWN: "s"
+        pygame.K_DOWN: "s",
     }
 
     # Main game loop
     while True:
         for event in pygame.event.get():
             # Handle Quit
-        
+
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
 
             if event.type == pygame.KEYDOWN:
-
-
                 if event.key == pygame.K_LCTRL or event.key == pygame.K_RCTRL:
                     print("Restarting game...")
                     board = restart(board, theme, text_col, size)
@@ -244,5 +249,5 @@ def playGame(theme, difficulty, size):
 
                         # Check win/lose
                         board, status = winCheck(board, status, theme, text_col, size)
-                
+
                 pygame.image.save(screen, screenshot_path)
