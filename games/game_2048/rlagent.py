@@ -1,7 +1,7 @@
 from typing import Literal
+import numpy as np
 
-class RLAgent:
-
+class RandomAgent:
     def get_action(self, board: list[list[int]]) -> Literal["w", "s", "a", "d"]:
         """
         Get the next action for the agent to take.
@@ -11,4 +11,5 @@ class RLAgent:
         Returns:
             (str): action to be taken by the agent
         """
-        pass
+        idx = np.random.randint(0, 4)
+        return ["w", "s", "a", "d"][idx]

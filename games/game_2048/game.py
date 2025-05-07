@@ -6,7 +6,7 @@ from copy import deepcopy
 import pygame
 from pygame.locals import *
 
-from logic import *
+from .logic import *
 import os
 
 # TODO: Add a RULES button on start page
