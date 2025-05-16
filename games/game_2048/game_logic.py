@@ -2,7 +2,7 @@ import json
 import argparse
 import pygame
 import os
-from game import playGame
+from .game import playGame
 
 # Default window size
 DEFAULT_WIDTH = 500
